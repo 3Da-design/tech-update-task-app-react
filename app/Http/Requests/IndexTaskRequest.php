@@ -5,7 +5,7 @@ namespace App\Http\Requests;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateTaskRequest extends FormRequest
+class IndexTaskRequest extends FormRequest
 {
   /**
    * Determine if the user is authorized to make this request.
@@ -23,10 +23,9 @@ class UpdateTaskRequest extends FormRequest
   public function rules(): array
   {
     return [
-      'title' => ['sometimes', 'required', 'string', 'max:255'],
-      'description' => ['sometimes', 'nullable', 'string'],
-      'status' => ['sometimes', 'required', 'string', 'max:255'],
-      'due_date' => ['sometimes', 'nullable', 'date'],
+      'title' => ['sometimes', 'string', 'max:255'],
+      'status' => ['sometimes', 'string', 'max:255'],
+      'due_date_sort' => ['sometimes', 'string', 'in:asc,desc'],
     ];
   }
 }

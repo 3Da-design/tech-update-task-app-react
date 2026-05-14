@@ -45,32 +45,59 @@ Boost provides your agent 15+ tools and skills that help agents build Laravel ap
 
 前提: [Docker Desktop](https://www.docker.com/products/docker-desktop/) など Compose v2 対応環境。
 
-1. プロジェクトルートで `.env` を用意し、少なくとも次が **コンテナ内から DB に届く値**になっていること（`docker-compose.yml` の `postgres` サービスと一致）。
+このプロジェクトの開発フローは **Docker Compose のみ**です。**ホストで `php artisan serve` は使わないでください**（`8000` 番ポートは nginx が使います。競合します）。
 
-   - `DB_CONNECTION=pgsql`
-   - `DB_HOST=postgres`
-   - `DB_PORT=5432`
-   - `DB_DATABASE=laravel`
-   - `DB_USERNAME=postgres`
-   - `DB_PASSWORD=secret`
-   - `APP_URL=http://localhost:8000`（Nginx が `8000` で公開）
+- **DB / APP_URL**: [docker-compose.yml](docker-compose.yml) の `app.environment` で `DB_*` と `APP_URL` / `ASSET_URL`（`http://localhost:8000`）がコンテナに渡ります。[docker/php/zz-clear-env.conf](docker/php/zz-clear-env.conf) で php-fpm が環境変数を引き継ぎます。`.env` に `DB_HOST=postgres` を書く必要はありません（ホストだけで `artisan` を動かす上級者向けは `.env.example` の注記を参照）。
+
+1. プロジェクトルートで `.env` を用意する。
+
+   ```bash
+   cp .env.example .env
+   ```
 
 2. 初回ビルドと起動。
 
    ```bash
-   docker compose build
+   docker compose build app
    docker compose up -d
    ```
 
-3. PHP コンテナ内で Composer とマイグレーション（**毎回プロジェクトルートで実行**）。
+   `app` コンテナ起動時に `vendor` が無ければ `composer install` が自動実行されます（[docker/php/docker-entrypoint.sh](docker/php/docker-entrypoint.sh)）。
+
+3. アプリケーションキーとマイグレーション（コンテナ内の Artisan）。
 
    ```bash
-   docker compose exec app composer install
    docker compose exec app php artisan key:generate
-   docker compose exec app php artisan migrate
+   docker compose exec app php artisan migrate --seed
    ```
 
-4. ブラウザで `http://localhost:8000` を開く。
+4. ブラウザまたは API クライアントで **`http://localhost:8000`** を開く（例: `http://localhost:8000/up` でヘルス、`http://localhost:8000/api/tasks`）。
+
+### API を curl で試すとき（`http_code` が `000` になる場合）
+
+`curl -w "%{http_code}"` が **`000`** のときは **Laravel が返したステータスではありません**。**TCP 接続の前に失敗**しており、よくある原因は次のとおりです。
+
+- **`...` をそのままコマンドに含めている**（省略記号は使えません。**フルの URL** を書く）
+- **Docker が起動していない**、または **`php artisan serve` が 8000 を占有**している（このプロジェクトでは nginx が 8000 を使う）
+- URL の typo（`http://` 忘れ、ポート違いなど）
+
+**正しい例（コピペ用。URL は一行で省略しない）:**
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST "http://localhost:8000/api/tasks" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"t","status":"invalid"}'
+```
+
+期待される終了表示は **`422`**（バリデーションエラー）です。本文を見る場合は `-o /dev/null` を外す。
+
+同じ確認をスクリプトで行う場合:
+
+```bash
+chmod +x scripts/curl-api-smoke.sh
+./scripts/curl-api-smoke.sh
+# 別ホスト例: ./scripts/curl-api-smoke.sh http://127.0.0.1:8000
+```
 
 よく使うコマンド:
 

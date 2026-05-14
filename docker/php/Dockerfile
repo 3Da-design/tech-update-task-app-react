@@ -13,3 +13,9 @@ WORKDIR /var/www/html
 # php-fpm はワーカー起動時に環境変数を消すため、Compose の DB_HOST 等が届かない。
 # Laravel が .env の 127.0.0.1 だけを見てしまいコンテナ内から DB に繋がらない問題を防ぐ。
 COPY docker/php/zz-clear-env.conf /usr/local/etc/php-fpm.d/zz-clear-env.conf
+
+COPY docker/php/docker-entrypoint.sh /usr/local/bin/docker-app-entrypoint
+RUN chmod +x /usr/local/bin/docker-app-entrypoint
+
+ENTRYPOINT ["docker-app-entrypoint"]
+CMD ["php-fpm"]

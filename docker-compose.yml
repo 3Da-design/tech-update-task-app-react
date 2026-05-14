@@ -8,8 +8,9 @@ services:
     restart: unless-stopped
     working_dir: /var/www/html
     environment:
-      # .env がホスト用（127.0.0.1）でも、コンテナ内は compose サービス名で接続する
-      # （php-fpm の clear_env=no によりここが PHP に渡る）
+      # .env がホスト用でも、コンテナ内は compose の値が使われる（php-fpm clear_env=no）
+      APP_URL: http://localhost:8000
+      ASSET_URL: http://localhost:8000
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: "5432"

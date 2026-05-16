@@ -1,7 +1,6 @@
 <x-app-layout>
-    <x-slot name="header">プロフィール</x-slot>
-
-    <x-app-container narrow>
+    <x-app-container>
+        <x-page-heading title="プロフィール" />
         <x-card>
             @include('profile.partials.update-profile-information-form')
         </x-card>

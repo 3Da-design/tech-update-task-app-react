@@ -36,15 +36,4 @@
             @endauth
         </nav>
     </div>
-
-    @if (! empty($header) && auth()->check())
-        <div class="app-header__subtitle">
-            <div class="app-header__subtitle-inner">
-                <h1 class="app-header__title">{{ $header }}</h1>
-                @if (request()->routeIs('tasks.index'))
-                    <a href="{{ route('tasks.create') }}" class="app-btn--primary shrink-0">新規作成</a>
-                @endif
-            </div>
-        </div>
-    @endif
 </header>

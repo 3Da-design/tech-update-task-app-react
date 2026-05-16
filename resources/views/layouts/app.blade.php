@@ -5,7 +5,7 @@
     </head>
     <body class="font-sans">
         <div class="app-shell">
-            @include('layouts.partials.header', ['header' => $header ?? null])
+            @include('layouts.partials.header')
 
             <main>
                 {{ $slot }}

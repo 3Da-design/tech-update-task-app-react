@@ -1,7 +1,6 @@
 <x-app-layout>
-    <x-slot name="header">タスク作成</x-slot>
-
     <x-app-container narrow>
+        <x-page-heading title="タスク作成" />
         <x-card>
             <form method="post" action="{{ route('tasks.store') }}">
                 @csrf

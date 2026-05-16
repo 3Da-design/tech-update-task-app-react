@@ -14,7 +14,7 @@
     }
 
     .app-header {
-        @apply border-b border-gray-700 bg-gray-800 text-gray-100;
+        @apply border-b border-gray-800 bg-gray-900 text-gray-100;
     }
 
     .app-header__inner {
@@ -29,16 +29,12 @@
         @apply text-sm font-semibold text-white;
     }
 
-    .app-header__subtitle {
-        @apply border-t border-gray-700 bg-gray-800;
+    .app-page-heading {
+        @apply flex flex-wrap items-center justify-between gap-4;
     }
 
-    .app-header__subtitle-inner {
-        @apply mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3;
-    }
-
-    .app-header__title {
-        @apply text-lg font-semibold text-white;
+    .app-page-title {
+        @apply text-xl font-semibold text-gray-900;
     }
 
     .app-header__nav {
@@ -46,15 +42,15 @@
     }
 
     .app-nav-link {
-        @apply rounded-md px-3 py-1.5 text-gray-300 transition hover:bg-gray-700 hover:text-white;
+        @apply rounded-md px-3 py-1.5 text-gray-300 transition hover:bg-gray-800 hover:text-white;
     }
 
     .app-nav-link--active {
-        @apply bg-gray-700 font-medium text-white;
+        @apply bg-gray-800 font-medium text-white;
     }
 
     .app-header__logout {
-        @apply rounded-md px-3 py-1.5 text-gray-300 transition hover:bg-gray-700 hover:text-white;
+        @apply rounded-md px-3 py-1.5 text-gray-300 transition hover:bg-gray-800 hover:text-white;
     }
 
     .app-main {

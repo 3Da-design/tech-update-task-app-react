@@ -1,7 +1,6 @@
 <x-app-layout>
-    <x-slot name="header">タスク編集</x-slot>
-
     <x-app-container narrow>
+        <x-page-heading title="タスク編集" />
         <x-card>
             <form method="post" action="{{ route('tasks.update', $task->id) }}">
                 @csrf

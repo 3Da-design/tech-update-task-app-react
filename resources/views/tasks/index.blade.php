@@ -1,7 +1,11 @@
 <x-app-layout>
-    <x-slot name="header">タスク一覧</x-slot>
-
     <x-app-container>
+        <x-page-heading title="タスク一覧">
+            <x-slot name="actions">
+                <a href="{{ route('tasks.create') }}" class="app-btn--primary">新規作成</a>
+            </x-slot>
+        </x-page-heading>
+
         @if (session('status'))
             <x-flash-message>{{ session('status') }}</x-flash-message>
         @endif

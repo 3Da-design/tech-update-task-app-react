@@ -6,8 +6,15 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int $user_id
+ * @property string $title
+ * @property string|null $description
+ * @property string $status
+ * @property \Illuminate\Support\Carbon|null $due_date
+ */
 #[Fillable(['user_id', 'title', 'description', 'status', 'due_date'])]
-
 class Task extends Model
 {
   protected function casts(): array

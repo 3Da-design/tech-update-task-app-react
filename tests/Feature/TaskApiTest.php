@@ -52,6 +52,18 @@ class TaskApiTest extends TestCase
     $this->assertDatabaseHas('tasks', ['title' => 'New Task']);
   }
 
+  /** POST status 不正 → 422 */
+  public function test_store_with_invalid_status_returns_422(): void
+  {
+    $response = $this->actingAs($this->user)->postJson('/api/tasks', [
+      'title' => 't',
+      'status' => 'invalid',
+    ]);
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors('status');
+  }
+
   /** POST title なし → Laravel 標準は 422 */
   public function test_store_without_title_returns_422(): void
   {

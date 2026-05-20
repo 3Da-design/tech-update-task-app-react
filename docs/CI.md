@@ -140,6 +140,7 @@ npm run test:api   # Docker で app が http://localhost:8000 のとき
 | `phpstan` | PHPStan 解析 | php-quality |
 | `check` | phpstan + test | （部分的） |
 | `test:api` | Newman（Postman コレクション） | api-tests |
+| `test:api:docker` | Newman（`baseUrl=http://nginx`、ローカル Docker 用） | （ローカル `check-quality.sh`） |
 
 ---
 

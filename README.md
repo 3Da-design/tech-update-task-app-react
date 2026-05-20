@@ -1,132 +1,264 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# tech-update-task-app
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+技術更新時の影響を定量評価するための **改良構成（良い例）** 実験台です。  
+同一機能のタスク管理アプリを、Controller / Service / Repository 分離と CI/CD で守り、更新シナリオごとに従来構成（別リポジトリ）と比較します。
 
-## About Laravel
+[![CI](https://github.com/OWNER/tech-update-task-app/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/tech-update-task-app/actions/workflows/ci.yml)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+> `OWNER` は GitHub のユーザー名または Organization 名に置き換えてください。
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## 目次
 
-## Learning Laravel
+1. [研究ゴールと比較設計](#研究ゴールと比較設計)
+2. [アーキテクチャ](#アーキテクチャ)
+3. [技術スタック](#技術スタック)
+4. [クイックスタート](#クイックスタート)
+5. [テストと CI](#テストと-ci)
+6. [実験の進め方](#実験の進め方)
+7. [更新シナリオ](#更新シナリオ)
+8. [評価指標](#評価指標)
+9. [ドキュメント索引](#ドキュメント索引)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+---
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## 研究ゴールと比較設計
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+| 項目 | 内容 |
+|------|------|
+| **ゴール** | 設計（モジュール化 + CI/CD）が技術更新時の影響をどれだけ抑えられるかを定量的に示す |
+| **本リポジトリ** | 改良構成（Controller / Service / Repository + Interface） |
+| **対照** | 完成後に本リポジトリをクローンし、タスク領域を Controller 直 DB の従来構成に戻した別リポジトリ |
+| **比較条件** | 同一アプリ（タスク管理）、同一スタック（Laravel）、同一 CI ワークフロー |
+| **評価スコープ** | **アプリ全体**（認証・プロフィール・タスク・CI 全ジョブ） |
 
-## Agentic Development
+詳細は [docs/EXPERIMENT.md](docs/EXPERIMENT.md) を参照してください。
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+---
 
-```bash
-composer require laravel/boost --dev
+## アーキテクチャ
 
-php artisan boost:install
+### タスク領域（改良構成の核）
+
+```text
+HTTP (Web / API)
+    │
+    ▼
+TaskController (Web / API)   … HTTP の受け渡しのみ
+    │
+    ▼
+TaskService                  … 認可・入力正規化・ユースケース
+    │
+    ▼
+TaskRepositoryInterface
+    │
+    ▼
+TaskRepository               … Eloquent による永続化
+    │
+    ▼
+Task (Model)
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+| レイヤ | クラス |
+|--------|--------|
+| Web | `App\Http\Controllers\Web\TaskController` |
+| API | `App\Http\Controllers\API\TaskController` |
+| Service | `App\Services\TaskService` |
+| Repository | `App\Repositories\TaskRepository` |
+| Interface | `App\Repositories\Contracts\TaskRepositoryInterface` |
+| DI | `App\Providers\RepositoryServiceProvider` |
+| 入出力 | `StoreTaskRequest`, `UpdateTaskRequest`, `TaskResource` |
 
-## Docker での開発
+Web と API は **同じ `TaskService`** を共有するため、API 仕様変更時の修正を Service / Repository 周辺に集約しやすい構成です。
 
-前提: [Docker Desktop](https://www.docker.com/products/docker-desktop/) など Compose v2 対応環境。
+### 認証・プロフィール
 
-このプロジェクトの開発フローは **Docker Compose のみ**です。**ホストで `php artisan serve` は使わないでください**（`8000` 番ポートは nginx が使います。競合します）。
+Laravel Breeze 標準（Controller から User Model を直接操作）。  
+比較実験の「悪い例」は **別リポジトリのタスク領域** で再現し、Laravel / テストツール / JS 更新の影響は全体メトリクスに含めます。
 
-- **DB / APP_URL**: [docker-compose.yml](docker-compose.yml) の `app.environment` で `DB_*` と `APP_URL` / `ASSET_URL`（`http://localhost:8000`）がコンテナに渡ります。[docker/php/zz-clear-env.conf](docker/php/zz-clear-env.conf) で php-fpm が環境変数を引き継ぎます。`.env` に `DB_HOST=postgres` を書く必要はありません（ホストだけで `artisan` を動かす上級者向けは `.env.example` の注記を参照）。
+### ディレクトリ（タスク関連）
 
-1. プロジェクトルートで `.env` を用意する。
-
-   ```bash
-   cp .env.example .env
-   ```
-
-2. 初回ビルドと起動。
-
-   ```bash
-   docker compose build app
-   docker compose up -d
-   ```
-
-   `app` コンテナ起動時に `vendor` が無ければ `composer install` が自動実行されます（[docker/php/docker-entrypoint.sh](docker/php/docker-entrypoint.sh)）。
-
-3. アプリケーションキーとマイグレーション（コンテナ内の Artisan）。
-
-   ```bash
-   docker compose exec app php artisan key:generate
-   docker compose exec app php artisan migrate --seed
-   ```
-
-4. ブラウザまたは API クライアントで **`http://localhost:8000`** を開く（例: `http://localhost:8000/up` でヘルス、`http://localhost:8000/api/tasks`）。
-
-### API を curl で試すとき（`http_code` が `000` になる場合）
-
-`curl -w "%{http_code}"` が **`000`** のときは **Laravel が返したステータスではありません**。**TCP 接続の前に失敗**しており、よくある原因は次のとおりです。
-
-- **`...` をそのままコマンドに含めている**（省略記号は使えません。**フルの URL** を書く）
-- **Docker が起動していない**、または **`php artisan serve` が 8000 を占有**している（このプロジェクトでは nginx が 8000 を使う）
-- URL の typo（`http://` 忘れ、ポート違いなど）
-
-**正しい例（コピペ用。URL は一行で省略しない）:**
-
-```bash
-curl -s -o /dev/null -w "%{http_code}\n" -X POST "http://localhost:8000/api/tasks" \
-  -H "Content-Type: application/json" \
-  -d '{"title":"t","status":"invalid"}'
+```text
+app/
+├── Http/
+│   ├── Controllers/
+│   │   ├── API/TaskController.php
+│   │   └── Web/TaskController.php
+│   ├── Requests/          # バリデーション
+│   └── Resources/         # API JSON
+├── Services/TaskService.php
+└── Repositories/
+    ├── Contracts/TaskRepositoryInterface.php
+    └── TaskRepository.php
 ```
 
-期待される終了表示は **`422`**（バリデーションエラー）です。本文を見る場合は `-o /dev/null` を外す。
+---
 
-同じ確認をスクリプトで行う場合:
+## 技術スタック
+
+| 区分 | 技術 |
+|------|------|
+| バックエンド | Laravel 13、PHP 8.4 |
+| 認証 | Laravel Breeze（セッション） |
+| DB | PostgreSQL（Docker Compose） |
+| フロント | Blade、Tailwind CSS、Vite、Alpine.js |
+| 品質 | PHPStan (Larastan)、Laravel Pint、ESLint |
+| テスト | PHPUnit、Postman / Newman |
+| CI | GitHub Actions（4 ジョブ並列） |
+| 開発環境 | Docker Compose（`http://localhost:8000`） |
+
+機能一覧は [docs/FeatureList.md](docs/FeatureList.md) を参照してください。
+
+---
+
+## クイックスタート
+
+### 前提
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) など Compose v2 対応環境
+- 開発フローは **Docker Compose のみ**（ホストで `php artisan serve` は使わない。ポート `8000` は nginx が使用）
+
+### 初回セットアップ
+
+```bash
+cp .env.example .env
+
+docker compose build app
+docker compose up -d
+
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --seed
+```
+
+ブラウザで `http://localhost:8000` を開きます。シードユーザー: `test@example.com` / `password`
+
+### よく使うコマンド
+
+```bash
+docker compose logs -f
+docker compose down              # DB ボリュームは残る
+docker compose down -v           # DB ごと削除
+```
+
+### API の疎通確認
 
 ```bash
 chmod +x scripts/curl-api-smoke.sh
 ./scripts/curl-api-smoke.sh
-# 別ホスト例: ./scripts/curl-api-smoke.sh http://127.0.0.1:8000
 ```
 
-## テスト（更新耐性）
+`http_code` が `000` のときは Docker 未起動・URL 誤り・ポート競合を確認してください（README 旧版の curl 例も有効です）。
 
-PHPStan / ESLint / PHPUnit / Postman の概要・手順は [docs/TESTING.md](docs/TESTING.md) を参照してください。
+---
+
+## テストと CI
+
+### ローカル一括（推奨）
 
 ```bash
-./scripts/check-quality.sh   # PHPStan + ESLint + PHPUnit
+./scripts/check-quality.sh
 ```
 
-よく使うコマンド:
+実行内容: PHPStan → ESLint → Vite build → PHPUnit → Newman
 
-- ログ: `docker compose logs -f`
-- 停止: `docker compose down`（DB ボリュームは残る）
-- DB ごと消す: `docker compose down -v`
+### 個別
 
-ホストの `5432` が既に使われている場合は、`docker-compose.yml` の `postgres` の `ports` を `5433:5432` などに変更してください。
+```bash
+docker compose exec app composer phpstan
+docker compose exec app composer test
+docker compose --profile node run --rm node npm run lint
+docker compose --profile node run --rm node sh -c "npm ci && npm run build"
+docker compose --profile node run --rm node npm run test:api
+```
 
-## Contributing
+### GitHub Actions（CI）
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+| ジョブ | 内容 |
+|--------|------|
+| `php-tests` | PHPUnit（事前に Vite build） |
+| `php-quality` | Pint + PHPStan |
+| `frontend` | ESLint + Vite build |
+| `api-tests` | Newman（Postman コレクション） |
 
-## Code of Conduct
+詳細: [docs/CI.md](docs/CI.md)、[docs/TESTING.md](docs/TESTING.md)
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+---
 
-## Security Vulnerabilities
+## 実験の進め方
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### 1. ベースラインの確立
 
-## License
+改良構成が CI 緑の状態で:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+./scripts/check-quality.sh
+composer experiment:metrics -- --phase baseline
+git tag -a experiment-baseline-v1 -m "Experiment baseline: improved architecture"
+```
+
+メトリクス JSON は `experiment/metrics/` に出力されます（Git 管理外）。
+
+### 2. 更新シナリオの実施
+
+[docs/experiment/scenarios/](docs/experiment/scenarios/) の手順に従い、ブランチで変更を適用します。
+
+```bash
+git checkout -b exp/api-spec-change experiment-baseline-v1
+# … シナリオに沿って変更 …
+composer experiment:metrics -- --phase after_update
+# … テスト・コードを修正 …
+./scripts/check-quality.sh
+composer experiment:metrics -- --phase after_fix
+```
+
+### 3. 記録
+
+[docs/experiment/metrics-record-template.md](docs/experiment/metrics-record-template.md) の列定義に従い、スプレッドシート等に記録します。
+
+### 4. 従来構成との比較
+
+本リポジトリをクローンし、[docs/experiment/LEGACY_MIGRATION.md](docs/experiment/LEGACY_MIGRATION.md) に従ってタスク領域を従来構成に戻したうえで、**同じシナリオ・同じ手順** を繰り返します。
+
+---
+
+## 更新シナリオ
+
+| シナリオ | ドキュメント |
+|----------|--------------|
+| バックエンド API 仕様変更 | [api-spec-change.md](docs/experiment/scenarios/api-spec-change.md) |
+| Laravel バージョン更新 | [laravel-upgrade.md](docs/experiment/scenarios/laravel-upgrade.md) |
+| テストツール更新 | [test-tool-upgrade.md](docs/experiment/scenarios/test-tool-upgrade.md) |
+| JavaScript ライブラリ変更 | [js-library-change.md](docs/experiment/scenarios/js-library-change.md) |
+
+---
+
+## 評価指標
+
+| 指標 | 概要 | 取得 |
+|------|------|------|
+| **テスト通過率** | PHPUnit / Newman 等の成功 ÷ 総数 | `composer experiment:metrics` |
+| **修正工数** | 作業時間、変更ファイル数、diff、コミット数 | 手動 + `git diff --stat` |
+| **エラー発生率** | PHPStan 件数、CI 失敗ジョブ、手動不具合 | スクリプト + 手動 |
+
+定義の詳細: [docs/EXPERIMENT.md](docs/EXPERIMENT.md)
+
+---
+
+## ドキュメント索引
+
+| ドキュメント | 内容 |
+|--------------|------|
+| [docs/EXPERIMENT.md](docs/EXPERIMENT.md) | 実験設計・指標・フェーズ |
+| [docs/FeatureList.md](docs/FeatureList.md) | 機能一覧 |
+| [docs/TESTING.md](docs/TESTING.md) | テストツールの使い方 |
+| [docs/CI.md](docs/CI.md) | GitHub Actions |
+| [docs/experiment/LEGACY_MIGRATION.md](docs/experiment/LEGACY_MIGRATION.md) | 従来構成リポジトリ作成手順 |
+| [docs/experiment/metrics-record-template.md](docs/experiment/metrics-record-template.md) | メトリクス記録テンプレート |
+| [docs/experiment/scenarios/](docs/experiment/scenarios/) | 更新シナリオ手順 |
+
+---
+
+## ライセンス
+
+MIT（Laravel プロジェクトスケルトンに準拠）

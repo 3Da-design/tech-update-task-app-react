@@ -34,17 +34,6 @@ class TaskController extends Controller
   }
 
   /**
-   * Display the specified resource.
-   */
-  public function show(string $id, TaskService $tasks): JsonResponse
-  {
-    $taskId = $this->parseTaskId($id);
-    $task = $tasks->findForDefaultUser($taskId);
-
-    return (new TaskResource($task))->response();
-  }
-
-  /**
    * Update the specified resource in storage.
    */
   public function update(UpdateTaskRequest $request, string $id, TaskService $tasks): JsonResponse

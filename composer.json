@@ -59,6 +59,7 @@
             "@phpstan",
             "@test"
         ],
+        "experiment:metrics": "bash scripts/collect-experiment-metrics.sh",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"

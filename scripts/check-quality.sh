@@ -40,7 +40,7 @@ fi
 echo "DB migrate --seed（test@example.com / password）"
 docker compose exec -T app php artisan migrate --force --seed
 
-docker compose --profile node run --rm node npm run test:api
+docker compose --profile node run --rm node npm run test:api:docker
 
 echo ""
 echo "All checks passed (PHPStan, ESLint, PHPUnit, Newman)."

@@ -70,6 +70,8 @@ docker compose exec app composer phpstan
 
 ### 実行
 
+依存はホストで入れず、先に `composer npm:docker-ci`（または `composer npm:docker-build`）を実行してから:
+
 ```bash
 docker compose --profile node run --rm node npm run lint
 ```

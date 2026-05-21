@@ -9,12 +9,16 @@ echo "== PHPStan (実行前・型・構造) =="
 docker compose exec -T app composer phpstan
 
 echo ""
+echo "== Frontend dependencies (Docker / npm ci) =="
+docker compose --profile node run --rm node sh -c "rm -rf node_modules && npm ci"
+
+echo ""
 echo "== ESLint (実行前・構文・規約) =="
 docker compose --profile node run --rm node npm run lint
 
 echo ""
 echo "== Frontend build (PHPUnit / Newman 用) =="
-docker compose --profile node run --rm node sh -c "npm ci && npm run build"
+docker compose --profile node run --rm node npm run build
 
 echo ""
 echo "== PHPUnit (実行後・ロジック) =="

@@ -118,6 +118,7 @@ app/
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) など Compose v2 対応環境
 - 開発フローは **Docker Compose のみ**（ホストで `php artisan serve` は使わない。ポート `8000` は nginx が使用）
+- **フロント（npm）は Docker の `node` サービスのみ**（ホストで `npm install` / `npm ci` しない。`node_modules` の混在で `ENOTEMPTY` などが起きる）
 
 ### 初回セットアップ
 
@@ -129,6 +130,9 @@ docker compose up -d
 
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate --seed
+
+# フロント資産（ログイン画面など @vite 用）
+composer npm:docker-build
 ```
 
 ブラウザで `http://localhost:8000` を開きます。シードユーザー: `test@example.com` / `password`
@@ -162,13 +166,22 @@ chmod +x scripts/curl-api-smoke.sh
 
 実行内容: PHPStan → ESLint → Vite build → PHPUnit → Newman
 
-### 個別
+### フロントエンド（Docker のみ）
+
+ホストに Node が入っていても、**依存のインストール・ビルドはコンテナ内だけ**で行います。
+
+```bash
+composer npm:docker-ci      # rm -rf node_modules && npm ci
+composer npm:docker-build   # 上記 + npm run build
+docker compose --profile node run --rm node npm run lint
+docker compose --profile node run --rm --service-ports node npm run dev   # Vite 開発サーバー
+```
+
+### 個別（PHP / API）
 
 ```bash
 docker compose exec app composer phpstan
 docker compose exec app composer test
-docker compose --profile node run --rm node npm run lint
-docker compose --profile node run --rm node sh -c "npm ci && npm run build"
 docker compose --profile node run --rm node npm run test:api
 ```
 

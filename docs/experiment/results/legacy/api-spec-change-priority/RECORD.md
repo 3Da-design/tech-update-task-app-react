@@ -3,7 +3,7 @@
 | 項目 | 値 |
 |------|----|
 | **run_id** | `run-20260521T061416Z` |
-| **シナリオ** | `api-spec-change` |
+| **シナリオ** | `api-spec-change-priority` |
 | **リポジトリ** | `legacy` |
 
 手動項目（CI・作業時間・コミット数など）は [手動記入](#manual) の表に追記してください。 スプレッドシートへそのまま貼る場合は [TSV（全列）](#tsv) を使えます。
@@ -50,9 +50,9 @@
 
 ```tsv
 repository	scenario	phase	recorded_at	phpunit_pass	phpunit_total	phpunit_pass_rate	newman_pass	newman_total	newman_pass_rate	phpstan_errors	eslint_ok	ci_jobs_failed	ci_jobs_total	work_minutes	files_changed	lines_added	lines_deleted	commits	manual_bugs	metrics_json	notes
-legacy	api-spec-change	baseline	20260521T061416Z	38	38	100.0	13	13	100.0	0	1							experiment/metrics/runs/run-20260521T061416Z/baseline.json	
-legacy	api-spec-change	after_update	20260521T061445Z	36	38	94.74	10	13	76.92	0	1							experiment/metrics/runs/run-20260521T061416Z/after_update.json	
-legacy	api-spec-change	after_fix	20260521T061458Z	38	38	100.0	13	13	100.0	0	1							experiment/metrics/runs/run-20260521T061416Z/after_fix.json	
+legacy	api-spec-change-priority	baseline	20260521T061416Z	38	38	100.0	13	13	100.0	0	1							experiment/metrics/runs/run-20260521T061416Z/baseline.json	
+legacy	api-spec-change-priority	after_update	20260521T061445Z	36	38	94.74	10	13	76.92	0	1							experiment/metrics/runs/run-20260521T061416Z/after_update.json	
+legacy	api-spec-change-priority	after_fix	20260521T061458Z	38	38	100.0	13	13	100.0	0	1							experiment/metrics/runs/run-20260521T061416Z/after_fix.json	
 ```
 
 </details>

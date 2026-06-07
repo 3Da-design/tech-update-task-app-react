@@ -243,7 +243,7 @@ def main() -> int:
     parser.add_argument(
         "--scenario",
         default="",
-        help="Scenario id (e.g. api-spec-change). Default: parse existing RECORD.md or (unset)",
+        help="Scenario id (e.g. api-spec-change-priority). Default: parse existing RECORD.md or (unset)",
     )
     parser.add_argument(
         "--write",

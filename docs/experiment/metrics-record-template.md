@@ -7,7 +7,7 @@
 | 列名 | 説明 | 例 |
 |------|------|-----|
 | `repository` | リポジトリ識別子 | `improved` / `legacy` |
-| `scenario` | シナリオ ID | `api-spec-change` |
+| `scenario` | シナリオ ID | `api-spec-change-priority` |
 | `phase` | 実験フェーズ | `baseline` / `after_update` / `after_fix` |
 | `recorded_at` | 記録日時（ISO 8601） | `2026-05-20T14:00:00+09:00` |
 | `phpunit_pass` | PHPUnit 成功数 | `32` |
@@ -33,10 +33,10 @@
 
 | repository | scenario | phase | phpunit_pass | phpunit_total | phpstan_errors | work_minutes | notes |
 |------------|----------|-------|--------------|---------------|----------------|--------------|-------|
-| improved | api-spec-change | after_update | 36 | 38 | 0 | — | 詳細: [results/api-spec-change/](./results/api-spec-change/) |
-| improved | api-spec-change | after_fix | 38 | 38 | 0 | — | TaskService + Resource + テスト |
-| legacy | api-spec-change | after_update | 36 | 38 | 0 | — | Web/API Controller 両方で normalize 更新 |
-| legacy | api-spec-change | after_fix | 38 | 38 | 0 | — | 同上 + テスト |
+| improved | api-spec-change-priority | after_update | 36 | 38 | 0 | — | 詳細: [results/api-spec-change-priority/](./results/api-spec-change-priority/) |
+| improved | api-spec-change-priority | after_fix | 38 | 38 | 0 | — | TaskService + Resource + テスト |
+| legacy | api-spec-change-priority | after_update | 36 | 38 | 0 | — | Web/API Controller 両方で normalize 更新 |
+| legacy | api-spec-change-priority | after_fix | 38 | 38 | 0 | — | 同上 + テスト |
 
 自動収集 JSON の一覧: [results/COMPARISON.md](./results/COMPARISON.md)
 

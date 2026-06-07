@@ -26,7 +26,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$SCENARIO" ]]; then
-  echo "error: --scenario is required (e.g. api-spec-change)" >&2
+  echo "error: --scenario is required (e.g. api-spec-change-priority)" >&2
   exit 1
 fi
 

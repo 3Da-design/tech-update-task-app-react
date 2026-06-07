@@ -109,7 +109,7 @@ app/
 | CI | GitHub Actions（4 ジョブ並列） |
 | 開発環境 | Docker Compose（`http://localhost:8000`） |
 
-機能一覧は [docs/FeatureList.md](docs/FeatureList.md) を参照してください。
+機能一覧は [docs/FEATURE_LIST.md](docs/FEATURE_LIST.md) を参照してください。
 
 ---
 
@@ -218,7 +218,7 @@ git tag -a experiment-baseline-v1 -m "Experiment baseline: improved architecture
 [docs/experiment/scenarios/](docs/experiment/scenarios/) の手順に従い、ブランチで変更を適用します。
 
 ```bash
-git checkout -b exp/api-spec-change experiment-baseline-v1
+git checkout -b exp/api-spec-change-priority experiment-baseline-v1
 # … シナリオに沿って変更 …
 composer experiment:metrics -- --phase after_update --diff-ref experiment-baseline-v1
 # … テスト・コードを修正 …
@@ -238,13 +238,13 @@ composer experiment:metrics -- --phase after_fix --diff-ref experiment-baseline-
 
 ## 更新シナリオ
 
-| シナリオ | ドキュメント |
-|----------|--------------|
-| バックエンド API 仕様変更 | [api-spec-change.md](docs/experiment/scenarios/api-spec-change.md) |
+| シナリオ ID | ドキュメント |
+|-------------|--------------|
+| API 仕様変更 — 属性追加 | [api-spec-change-priority.md](docs/experiment/scenarios/api-spec-change-priority.md) |
+| API 仕様変更 — 既存属性の型変更 | [api-spec-change-status-int.md](docs/experiment/scenarios/api-spec-change-status-int.md) |
 | DB / クエリ変更 | [db-schema-change.md](docs/experiment/scenarios/db-schema-change.md) |
-| Laravel バージョン更新 | [laravel-upgrade.md](docs/experiment/scenarios/laravel-upgrade.md) |
-| テストツール更新 | [test-tool-upgrade.md](docs/experiment/scenarios/test-tool-upgrade.md) |
-| JavaScript ライブラリ変更 | [js-library-change.md](docs/experiment/scenarios/js-library-change.md) |
+
+レイヤ別の影響分析: [ARCHITECTURE_ANALYSIS.md](docs/ARCHITECTURE_ANALYSIS.md)
 
 ---
 
@@ -265,9 +265,10 @@ composer experiment:metrics -- --phase after_fix --diff-ref experiment-baseline-
 
 | ドキュメント | 内容 |
 |--------------|------|
-| [docs/COMPARABILITY.md](docs/COMPARABILITY.md) | 比較可能化の修正内容（本ドキュメント） |
+| [docs/ARCHITECTURE_ANALYSIS.md](docs/ARCHITECTURE_ANALYSIS.md) | 3 シナリオのレイヤ別影響分析 |
 | [docs/EXPERIMENT.md](docs/EXPERIMENT.md) | 実験設計・指標・フェーズ |
-| [docs/FeatureList.md](docs/FeatureList.md) | 機能一覧 |
+| [docs/experiment/results/COMPARISON.md](docs/experiment/results/COMPARISON.md) | 改良 vs 従来の比較表 |
+| [docs/FEATURE_LIST.md](docs/FEATURE_LIST.md) | 機能一覧 |
 | [docs/TESTING.md](docs/TESTING.md) | テストツールの使い方 |
 | [docs/CI.md](docs/CI.md) | GitHub Actions |
 | [docs/experiment/LEGACY_MIGRATION.md](docs/experiment/LEGACY_MIGRATION.md) | 従来構成リポジトリ作成手順 |

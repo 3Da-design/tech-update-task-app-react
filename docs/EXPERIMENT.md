@@ -36,17 +36,15 @@
 
 ## 更新シナリオ
 
-各シナリオの手順は [experiment/scenarios/](./experiment/scenarios/) を参照してください。
+各シナリオの手順は [experiment/scenarios/](./experiment/scenarios/) を参照してください。レイヤ別の影響分析は [ARCHITECTURE_ANALYSIS.md](./ARCHITECTURE_ANALYSIS.md) を参照してください。
 
-| シナリオ | ドキュメント |
-|----------|--------------|
-| バックエンド API 仕様変更 | [api-spec-change.md](./experiment/scenarios/api-spec-change.md) |
+| シナリオ ID | ドキュメント |
+|-------------|--------------|
+| API 仕様変更 — 属性追加（`priority`） | [api-spec-change-priority.md](./experiment/scenarios/api-spec-change-priority.md) |
+| API 仕様変更 — 既存属性の型変更（`status` → int） | [api-spec-change-status-int.md](./experiment/scenarios/api-spec-change-status-int.md) |
 | DB / クエリ変更（タイトル検索） | [db-schema-change.md](./experiment/scenarios/db-schema-change.md) |
-| Laravel バージョン更新 | [laravel-upgrade.md](./experiment/scenarios/laravel-upgrade.md) |
-| テストツール更新 | [test-tool-upgrade.md](./experiment/scenarios/test-tool-upgrade.md) |
-| JavaScript ライブラリ変更 | [js-library-change.md](./experiment/scenarios/js-library-change.md) |
 
-**原則:** 1 シナリオ = 1 実験ラン。両リポジトリに **同一の変更内容** を適用し、メトリクスを比較する。
+**原則:** 1 シナリオ = 1 実験ラン。両構成に **同一の変更内容** を適用し、メトリクスを比較する。
 
 ## 評価指標
 
@@ -58,7 +56,7 @@
 | **2** | 更新直後のテスト失敗数 | 同上の `phpunit.fail` / `newman.fail`（**after_update** フェーズ） |
 | **3** | 作業時間（分） | [metrics-record-template.md](./experiment/metrics-record-template.md) に手動記録 |
 
-> **注意:** シナリオ 1（API 仕様変更）では **通過率だけでは改良構成と従来構成の差が出ない** 場合がある。修正ファイル数の差を主に見ること。
+> **注意:** API 仕様変更シナリオでは **通過率だけでは改良構成と従来構成の差が出ない** 場合がある。修正ファイル数の差を主に見ること。
 
 ### 1. テスト通過率
 
@@ -120,7 +118,7 @@ git tag -a experiment-baseline-v1 -m "Experiment baseline: improved architecture
 ## 実験の進め方（概要）
 
 1. ベースライン tag を作成
-2. シナリオ用ブランチを切る（例: `exp/api-spec-change`）
+2. シナリオ用ブランチを切る（例: `exp/api-spec-change-priority`）
 3. [scenarios/](./experiment/scenarios/) に従い更新を適用
 4. `after_update` でメトリクス収集
 5. テスト・コードを修正し CI を緑にする
@@ -132,9 +130,10 @@ git tag -a experiment-baseline-v1 -m "Experiment baseline: improved architecture
 
 | ドキュメント | 内容 |
 |--------------|------|
-| [experiment/results/COMPARISON.md](./experiment/results/COMPARISON.md) | 全シナリオの 3 フェーズ比較表 |
-| [experiment/results/api-spec-change/](./experiment/results/api-spec-change/) | シナリオ1（改良） |
-| [experiment/results/legacy/api-spec-change/](./experiment/results/legacy/api-spec-change/) | シナリオ1（従来・`legacy-architecture` ブランチ） |
+| [ARCHITECTURE_ANALYSIS.md](./ARCHITECTURE_ANALYSIS.md) | 3 シナリオのレイヤ別影響分析 |
+| [experiment/results/COMPARISON.md](./experiment/results/COMPARISON.md) | 3 シナリオの比較表 |
+| [experiment/results/api-spec-change-priority/](./experiment/results/api-spec-change-priority/) | シナリオ 1（改良） |
+| [experiment/results/legacy/api-spec-change-priority/](./experiment/results/legacy/api-spec-change-priority/) | シナリオ 1（従来） |
 
 従来構成の実装は **`legacy-architecture` ブランチ** にあります（別リポジトリの代わり）。
 
@@ -145,5 +144,6 @@ git tag -a experiment-baseline-v1 -m "Experiment baseline: improved architecture
 | [README.md](../README.md) | プロジェクト概要・クイックスタート |
 | [TESTING.md](./TESTING.md) | テストツールの詳細 |
 | [CI.md](./CI.md) | GitHub Actions |
-| [FeatureList.md](./FeatureList.md) | 機能一覧 |
+| [ARCHITECTURE_ANALYSIS.md](./ARCHITECTURE_ANALYSIS.md) | レイヤ別影響分析（3 シナリオ） |
+| [FEATURE_LIST.md](./FEATURE_LIST.md) | 機能一覧 |
 | [experiment/metrics-record-template.md](./experiment/metrics-record-template.md) | 記録テンプレート |

@@ -89,5 +89,7 @@ composer experiment:record -- --scenario db-schema-change --write
 
 ## 関連
 
+- [ARCHITECTURE_ANALYSIS.md](../../ARCHITECTURE_ANALYSIS.md) — レイヤ別分析（セクション 3）
 - [EXPERIMENT.md](../../EXPERIMENT.md) — 主評価指標の定義
-- [api-spec-change.md](./api-spec-change.md) — API 仕様変更シナリオ（`priority` は **exp ブランチ** で実施。main ベースラインには含めない）
+- [api-spec-change-priority.md](./api-spec-change-priority.md) — 属性追加シナリオ
+- [api-spec-change-status-int.md](./api-spec-change-status-int.md) — 既存属性の型変更シナリオ

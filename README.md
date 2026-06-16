@@ -218,7 +218,7 @@ git tag -a experiment-baseline-v1 -m "Experiment baseline: improved architecture
 [docs/experiment/scenarios/](docs/experiment/scenarios/) の手順に従い、ブランチで変更を適用します。
 
 ```bash
-git checkout -b exp/api-spec-change-priority experiment-baseline-v1
+git checkout -b exp/my-scenario experiment-baseline-v1
 # … シナリオに沿って変更 …
 composer experiment:metrics -- --phase after_update --diff-ref experiment-baseline-v1
 # … テスト・コードを修正 …
@@ -232,19 +232,13 @@ composer experiment:metrics -- --phase after_fix --diff-ref experiment-baseline-
 
 ### 4. 従来構成との比較
 
-本リポジトリをクローンし、[docs/experiment/LEGACY_MIGRATION.md](docs/experiment/LEGACY_MIGRATION.md) に従ってタスク領域を従来構成に戻したうえで、**同じシナリオ・同じ手順** を繰り返します。
+従来構成リポジトリ（`tech-update-task-app-legacy`）で、**同じシナリオ・同じ手順** を繰り返します。
 
 ---
 
 ## 更新シナリオ
 
-| シナリオ ID | ドキュメント |
-|-------------|--------------|
-| API 仕様変更 — 属性追加 | [api-spec-change-priority.md](docs/experiment/scenarios/api-spec-change-priority.md) |
-| API 仕様変更 — 既存属性の型変更 | [api-spec-change-status-int.md](docs/experiment/scenarios/api-spec-change-status-int.md) |
-| DB / クエリ変更 | [db-schema-change.md](docs/experiment/scenarios/db-schema-change.md) |
-
-レイヤ別の影響分析: [ARCHITECTURE_ANALYSIS.md](docs/ARCHITECTURE_ANALYSIS.md)
+シナリオ手順は [docs/experiment/scenarios/](docs/experiment/scenarios/) に定義します（現時点では未作成）。
 
 ---
 
@@ -265,13 +259,10 @@ composer experiment:metrics -- --phase after_fix --diff-ref experiment-baseline-
 
 | ドキュメント | 内容 |
 |--------------|------|
-| [docs/ARCHITECTURE_ANALYSIS.md](docs/ARCHITECTURE_ANALYSIS.md) | 3 シナリオのレイヤ別影響分析 |
 | [docs/EXPERIMENT.md](docs/EXPERIMENT.md) | 実験設計・指標・フェーズ |
-| [docs/experiment/results/COMPARISON.md](docs/experiment/results/COMPARISON.md) | 改良 vs 従来の比較表 |
 | [docs/FEATURE_LIST.md](docs/FEATURE_LIST.md) | 機能一覧 |
 | [docs/TESTING.md](docs/TESTING.md) | テストツールの使い方 |
 | [docs/CI.md](docs/CI.md) | GitHub Actions |
-| [docs/experiment/LEGACY_MIGRATION.md](docs/experiment/LEGACY_MIGRATION.md) | 従来構成リポジトリ作成手順 |
 | [docs/experiment/metrics-record-template.md](docs/experiment/metrics-record-template.md) | メトリクス記録テンプレート |
 | [docs/experiment/scenarios/](docs/experiment/scenarios/) | 更新シナリオ手順 |
 

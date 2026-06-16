@@ -19,7 +19,7 @@
 - 更新シナリオ実施後のメトリクスを記録する
 - 従来構成リポジトリ作成時の **クローン元** となる
 
-従来構成へのリファクタ手順は [experiment/LEGACY_MIGRATION.md](./experiment/LEGACY_MIGRATION.md) を参照してください（本リポジトリでは実施しません）。
+従来構成は別リポジトリ（`tech-update-task-app-legacy`）で管理します（本リポジトリでは実施しません）。
 
 ## 比較条件
 
@@ -36,13 +36,7 @@
 
 ## 更新シナリオ
 
-各シナリオの手順は [experiment/scenarios/](./experiment/scenarios/) を参照してください。レイヤ別の影響分析は [ARCHITECTURE_ANALYSIS.md](./ARCHITECTURE_ANALYSIS.md) を参照してください。
-
-| シナリオ ID | ドキュメント |
-|-------------|--------------|
-| API 仕様変更 — 属性追加（`priority`） | [api-spec-change-priority.md](./experiment/scenarios/api-spec-change-priority.md) |
-| API 仕様変更 — 既存属性の型変更（`status` → int） | [api-spec-change-status-int.md](./experiment/scenarios/api-spec-change-status-int.md) |
-| DB / クエリ変更（タイトル検索） | [db-schema-change.md](./experiment/scenarios/db-schema-change.md) |
+各シナリオの手順は [experiment/scenarios/](./experiment/scenarios/) に Markdown で定義します（現時点では未作成）。
 
 **原則:** 1 シナリオ = 1 実験ラン。両構成に **同一の変更内容** を適用し、メトリクスを比較する。
 
@@ -118,24 +112,13 @@ git tag -a experiment-baseline-v1 -m "Experiment baseline: improved architecture
 ## 実験の進め方（概要）
 
 1. ベースライン tag を作成
-2. シナリオ用ブランチを切る（例: `exp/api-spec-change-priority`）
+2. シナリオ用ブランチを切る（例: `exp/my-scenario`）
 3. [scenarios/](./experiment/scenarios/) に従い更新を適用
 4. `after_update` でメトリクス収集
 5. テスト・コードを修正し CI を緑にする
 6. `after_fix` でメトリクス収集
 7. [metrics-record-template.md](./experiment/metrics-record-template.md) に記録
 8. 従来構成リポジトリで 3〜7 を繰り返し、比較表を作成
-
-## 実験結果（収集済み）
-
-| ドキュメント | 内容 |
-|--------------|------|
-| [ARCHITECTURE_ANALYSIS.md](./ARCHITECTURE_ANALYSIS.md) | 3 シナリオのレイヤ別影響分析 |
-| [experiment/results/COMPARISON.md](./experiment/results/COMPARISON.md) | 3 シナリオの比較表 |
-| [experiment/results/api-spec-change-priority/](./experiment/results/api-spec-change-priority/) | シナリオ 1（改良） |
-| [experiment/results/legacy/api-spec-change-priority/](./experiment/results/legacy/api-spec-change-priority/) | シナリオ 1（従来） |
-
-従来構成の実装は **`legacy-architecture` ブランチ** にあります（別リポジトリの代わり）。
 
 ## 関連ドキュメント
 
@@ -144,6 +127,5 @@ git tag -a experiment-baseline-v1 -m "Experiment baseline: improved architecture
 | [README.md](../README.md) | プロジェクト概要・クイックスタート |
 | [TESTING.md](./TESTING.md) | テストツールの詳細 |
 | [CI.md](./CI.md) | GitHub Actions |
-| [ARCHITECTURE_ANALYSIS.md](./ARCHITECTURE_ANALYSIS.md) | レイヤ別影響分析（3 シナリオ） |
 | [FEATURE_LIST.md](./FEATURE_LIST.md) | 機能一覧 |
 | [experiment/metrics-record-template.md](./experiment/metrics-record-template.md) | 記録テンプレート |

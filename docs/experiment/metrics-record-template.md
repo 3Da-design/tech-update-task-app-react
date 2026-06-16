@@ -7,7 +7,7 @@
 | 列名 | 説明 | 例 |
 |------|------|-----|
 | `repository` | リポジトリ識別子 | `improved` / `legacy` |
-| `scenario` | シナリオ ID | `api-spec-change-priority` |
+| `scenario` | シナリオ ID | `my-scenario-id` |
 | `phase` | 実験フェーズ | `baseline` / `after_update` / `after_fix` |
 | `recorded_at` | 記録日時（ISO 8601） | `2026-05-20T14:00:00+09:00` |
 | `phpunit_pass` | PHPUnit 成功数 | `32` |
@@ -29,16 +29,14 @@
 | `metrics_json` | 自動収集 JSON のパス | `experiment/metrics/baseline-....json` |
 | `notes` | 自由記述 | `TaskService のみ修正で復旧` |
 
-## 記録例（本リポジトリで実施済み）
+## 記録例
 
 | repository | scenario | phase | phpunit_pass | phpunit_total | phpstan_errors | work_minutes | notes |
 |------------|----------|-------|--------------|---------------|----------------|--------------|-------|
-| improved | api-spec-change-priority | after_update | 36 | 38 | 0 | — | 詳細: [results/api-spec-change-priority/](./results/api-spec-change-priority/) |
-| improved | api-spec-change-priority | after_fix | 38 | 38 | 0 | — | TaskService + Resource + テスト |
-| legacy | api-spec-change-priority | after_update | 36 | 38 | 0 | — | Web/API Controller 両方で normalize 更新 |
-| legacy | api-spec-change-priority | after_fix | 38 | 38 | 0 | — | 同上 + テスト |
-
-自動収集 JSON の一覧: [results/COMPARISON.md](./results/COMPARISON.md)
+| improved | my-scenario-id | after_update | 25 | 32 | 3 | 0 | 更新直後・未修正 |
+| improved | my-scenario-id | after_fix | 32 | 32 | 0 | 25 | 修正完了 |
+| legacy | my-scenario-id | after_update | 18 | 32 | 5 | 0 | 更新直後・未修正 |
+| legacy | my-scenario-id | after_fix | 32 | 32 | 0 | 90 | 修正完了 |
 
 ## 自動収集との対応
 

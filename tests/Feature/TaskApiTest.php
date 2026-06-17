@@ -33,7 +33,7 @@ class TaskApiTest extends TestCase
   public function test_index_returns_200_and_task_count(): void
   {
     Task::query()->create([
-      'user_id' => User::where('email', 'test@example.com')->value('id'),
+      'user_id' => $this->user->id,
       'title' => 'A',
       'description' => null,
       'status' => 'todo',
@@ -85,7 +85,7 @@ class TaskApiTest extends TestCase
   /** PUT 正常 */
   public function test_update_returns_200(): void
   {
-    $userId = User::where('email', 'test@example.com')->value('id');
+    $userId = $this->user->id;
     $task = Task::query()->create([
       'user_id' => $userId,
       'title' => 'Old',
@@ -117,7 +117,7 @@ class TaskApiTest extends TestCase
   /** DELETE 正常 → 204、その後 DB にないこと */
   public function test_destroy_return_204_and_removes_row(): void
   {
-    $userId = User::where('email', 'test@example.com')->value('id');
+    $userId = $this->user->id;
     $task = Task::query()->create([
       'user_id' => $userId,
       'title' => 'To delete',

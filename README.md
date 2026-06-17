@@ -3,9 +3,7 @@
 技術更新時の影響を定量評価するための **改良構成（良い例）** 実験台です。  
 同一機能のタスク管理アプリを、Controller / Service / Repository 分離と CI/CD で守り、更新シナリオごとに従来構成（別リポジトリ）と比較します。
 
-[![CI](https://github.com/OWNER/tech-update-task-app/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/tech-update-task-app/actions/workflows/ci.yml)
-
-> `OWNER` は GitHub のユーザー名または Organization 名に置き換えてください。
+[![CI](https://github.com/3Da-design/tech-update-task-app/actions/workflows/ci.yml/badge.svg)](https://github.com/3Da-design/tech-update-task-app/actions/workflows/ci.yml)
 
 ---
 

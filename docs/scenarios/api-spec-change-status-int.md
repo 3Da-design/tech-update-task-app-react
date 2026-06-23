@@ -134,11 +134,12 @@ composer experiment:record -- --scenario api-spec-change-status-int --write
 
 - [ ] GitHub Actions 4 ジョブすべて成功
 - [ ] 3 フェーズ JSON がある
+- [ ] `experiment/results/` に結果をコピー（`scripts/publish-experiment-results.sh`）
 - [ ] 従来構成リポジトリ（`tech-update-task-app-legacy`）で同一手順を実施
 
 ## 関連
 
 - [EXPERIMENT.md](../../EXPERIMENT.md) — 実験設計・主評価指標の定義
-- [metrics-record-template.md](../metrics-record-template.md) — スプレッドシート列定義
+- [EXPERIMENT.md — メトリクス記録テンプレート](../EXPERIMENT.md#メトリクス記録テンプレート) — スプレッドシート列定義
 - [api-spec-change-priority.md](./api-spec-change-priority.md) — 属性追加シナリオ（対比用）
 - [db-schema-change.md](./db-schema-change.md) — クエリ変更シナリオ

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# experiment/metrics/runs/<run_id>/ を docs/experiment/results/<scenario>/ にコピーする
+# experiment/metrics/runs/<run_id>/ を experiment/results/<scenario>/ にコピーする
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -40,7 +40,7 @@ if [[ -z "$RUN_ID" ]]; then
 fi
 
 SRC="$ROOT/experiment/metrics/runs/$RUN_ID"
-DEST="$ROOT/docs/experiment/results/$SCENARIO"
+DEST="$ROOT/experiment/results/$SCENARIO"
 
 if [[ ! -d "$SRC" ]]; then
   echo "error: run directory not found: $SRC" >&2

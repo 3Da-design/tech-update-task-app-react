@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 実験ランの baseline / after_update / after_fix の JSON から、
-metrics-record-template に沿った Markdown 記録（RECORD.md）を生成する。
+docs/EXPERIMENT.md のメトリクス記録テンプレートに沿った Markdown 記録（RECORD.md）を生成する。
 """
 from __future__ import annotations
 

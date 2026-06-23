@@ -36,27 +36,27 @@
 
 ## 更新シナリオ
 
-各シナリオの手順は [experiment/scenarios/](./experiment/scenarios/) を参照してください。
+各シナリオの手順は [scenarios/](./scenarios/) を参照してください。
 
 ### 主シナリオ（3 件）
 
 | # | シナリオ | ドキュメント |
 |---|----------|--------------|
-| 1 | API 仕様変更: status integer 化 | [api-spec-change-status-int.md](./experiment/scenarios/api-spec-change-status-int.md) |
-| 2 | API 仕様変更: priority 追加 | [api-spec-change-priority.md](./experiment/scenarios/api-spec-change-priority.md) |
-| 3 | DB / クエリ変更（タイトル検索） | [db-schema-change.md](./experiment/scenarios/db-schema-change.md) |
+| 1 | API 仕様変更: status integer 化 | [api-spec-change-status-int.md](./scenarios/api-spec-change-status-int.md) |
+| 2 | API 仕様変更: priority 追加 | [api-spec-change-priority.md](./scenarios/api-spec-change-priority.md) |
+| 3 | DB / クエリ変更（タイトル検索） | [db-schema-change.md](./scenarios/db-schema-change.md) |
 
 **原則:** 1 シナリオ = 1 実験ラン。両リポジトリに **同一の変更内容** を適用し、メトリクスを比較する。
 
 ### 拡張実験（参考）
 
-以下は主シナリオとは別枠の参考計測です。手順 MD は本リポジトリには含めません。収集済み結果は `tech-update-task-app-legacy` リポジトリの [experiment/results/COMPARISON.md](https://github.com/3Da-design/tech-update-task-app-legacy/blob/main/docs/experiment/results/COMPARISON.md) の「拡張実験」節を参照してください。
+以下は主シナリオとは別枠の参考計測です。手順 MD は本リポジトリには含めません。収集済み結果は `tech-update-task-app-legacy` リポジトリの `experiment/results/` を参照してください。
 
 | シナリオ | 結果ディレクトリ（legacy リポジトリ内） |
 |----------|----------------------------------------|
-| Laravel バージョン更新 | `docs/experiment/results/laravel-upgrade/` |
-| テストツール更新 | `docs/experiment/results/test-tool-upgrade/` |
-| JavaScript ライブラリ変更 | `docs/experiment/results/js-library-change/` |
+| Laravel バージョン更新 | `experiment/results/laravel-upgrade/` |
+| テストツール更新 | `experiment/results/test-tool-upgrade/` |
+| JavaScript ライブラリ変更 | `experiment/results/js-library-change/` |
 
 ## 評価指標
 
@@ -66,7 +66,7 @@
 |------|------|----------|
 | **1** | 修正工数（変更ファイル数・行数） | `composer experiment:metrics -- --diff-ref experiment-baseline-v1` の `git.files_changed` / `lines_added` / `lines_deleted`（**after_fix** フェーズ） |
 | **2** | 更新直後のテスト失敗数 | 同上の `phpunit.fail` / `newman.fail`（**after_update** フェーズ） |
-| **3** | 作業時間（分） | [metrics-record-template.md](./experiment/metrics-record-template.md) に手動記録 |
+| **3** | 作業時間（分） | [メトリクス記録テンプレート](#メトリクス記録テンプレート) に手動記録 |
 
 > **注意:** API 仕様変更シナリオ（1・2）では **通過率だけでは改良構成と従来構成の差が出ない** 場合がある。修正ファイル数の差を主に見ること（従来構成では `Web\TaskController` と `API\TaskController` の両方を直すことが多い）。
 
@@ -79,7 +79,7 @@
 | 変更ファイル数 | `composer experiment:metrics` の `git.files_changed` |
 | 追加 / 削除行数 | `git.lines_added` / `git.lines_deleted` |
 | コミット数 | シナリオ開始〜CI 緑まで（手動） |
-| 作業時間（分） | [metrics-record-template.md](./experiment/metrics-record-template.md) に手動記録 |
+| 作業時間（分） | [メトリクス記録テンプレート](#メトリクス記録テンプレート) に手動記録 |
 
 **完了基準:** 両リポジトリで CI 全ジョブが成功（`after_fix` フェーズ）。
 
@@ -136,20 +136,55 @@ git tag -a experiment-baseline-v1 -m "Experiment baseline: improved architecture
 ## 実験の進め方（概要）
 
 1. ベースライン tag を作成
-2. シナリオ用ブランチを切る（例: `exp/api-spec-change-status-int`。各 [scenarios/](./experiment/scenarios/) MD を参照）
-3. [scenarios/](./experiment/scenarios/) に従い更新を適用
+2. シナリオ用ブランチを切る（例: `exp/api-spec-change-status-int`。各 [scenarios/](./scenarios/) MD を参照）
+3. [scenarios/](./scenarios/) に従い更新を適用
 4. `after_update` でメトリクス収集
 5. テスト・コードを修正し CI を緑にする
 6. `after_fix` でメトリクス収集
-7. [metrics-record-template.md](./experiment/metrics-record-template.md) に記録
+7. [メトリクス記録テンプレート](#メトリクス記録テンプレート) に記録
 8. 従来構成リポジトリ（`tech-update-task-app-legacy`）で 3〜7 を繰り返し、比較表を作成
+
+## メトリクス記録テンプレート
+
+スプレッドシート等に転記する列定義。**主指標は `after_fix` の修正工数**（変更ファイル数・行数）。API 仕様変更シナリオでは通過率が構成間で同一になりうるため、通過率だけで構成差を判定しないこと。
+
+### 列定義
+
+| 列 | 説明 | 取得元 |
+|----|------|--------|
+| `repository` | `legacy` または `improved` | 手動 |
+| `scenario` | シナリオ ID（例: `api-spec-change-status-int`） | 手動 |
+| `phase` | `baseline` / `after_update` / `after_fix` | 手動 |
+| `recorded_at` | ISO 8601 タイムスタンプ | metrics JSON |
+| `phpunit_pass` | PHPUnit 成功数 | metrics JSON |
+| `phpunit_total` | PHPUnit 総数 | metrics JSON |
+| `phpunit_pass_rate` | 通過率（参考） | metrics JSON |
+| `newman_pass` | Newman 成功数 | metrics JSON |
+| `newman_total` | Newman 総数 | metrics JSON |
+| `newman_pass_rate` | 通過率（参考） | metrics JSON |
+| `phpstan_errors` | PHPStan エラー件数 | metrics JSON |
+| `eslint_ok` | ESLint 成功（1/0） | metrics JSON |
+| `ci_jobs_failed` | CI 失敗ジョブ数 | 手動 |
+| `ci_jobs_total` | CI 実行ジョブ数 | 手動 |
+| `work_minutes` | 作業時間（分） | **手動** |
+| `files_changed` | 変更ファイル数 | metrics JSON `git.files_changed`（**after_fix が主指標**） |
+| `lines_added` | 追加行数 | metrics JSON `git.lines_added` |
+| `lines_deleted` | 削除行数 | metrics JSON `git.lines_deleted` |
+| `commits` | コミット数 | **手動** |
+| `manual_bugs` | 手動で発見した不具合件数 | **手動** |
+| `metrics_json` | JSON ファイルへの相対パス | 自動 |
+| `notes` | メモ | **手動** |
+
+### 記録例（CSV ヘッダ）
+
+```text
+repository,scenario,phase,recorded_at,phpunit_pass,phpunit_total,phpunit_pass_rate,newman_pass,newman_total,newman_pass_rate,phpstan_errors,eslint_ok,ci_jobs_failed,ci_jobs_total,work_minutes,files_changed,lines_added,lines_deleted,commits,manual_bugs,metrics_json,notes
+```
+
+`composer experiment:record -- --scenario <id> --write` で上記列に沿った `RECORD.md` を生成できます。
 
 ## 関連ドキュメント
 
 | ドキュメント | 内容 |
 |--------------|------|
 | [README.md](../README.md) | プロジェクト概要・クイックスタート |
-| [TESTING.md](./TESTING.md) | テストツールの詳細 |
-| [CI.md](./CI.md) | GitHub Actions |
-| [FEATURE_LIST.md](./FEATURE_LIST.md) | 機能一覧 |
-| [experiment/metrics-record-template.md](./experiment/metrics-record-template.md) | 記録テンプレート |

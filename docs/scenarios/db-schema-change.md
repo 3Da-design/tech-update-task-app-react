@@ -87,12 +87,13 @@ composer experiment:record -- --scenario db-schema-change --write
 
 - [ ] GitHub Actions 4 ジョブすべて成功（`after_fix`）
 - [ ] `experiment/metrics/runs/<run_id>/` に 3 フェーズ JSON がある
-- [ ] 改良 vs legacy で `git.files_changed` を比較表に記載
+- [ ] `experiment/results/` に結果をコピー（`scripts/publish-experiment-results.sh`）
+- [ ] 改良 vs legacy で `git.files_changed` を各リポジトリの `experiment/results/` で比較
 - [ ] 従来構成リポジトリ（`tech-update-task-app-legacy`）で同一手順を実施
 
 ## 関連
 
 - [EXPERIMENT.md](../../EXPERIMENT.md) — 実験設計・主評価指標の定義
-- [metrics-record-template.md](../metrics-record-template.md) — スプレッドシート列定義
+- [EXPERIMENT.md — メトリクス記録テンプレート](../EXPERIMENT.md#メトリクス記録テンプレート) — スプレッドシート列定義
 - [api-spec-change-priority.md](./api-spec-change-priority.md) — 属性追加シナリオ
 - [api-spec-change-status-int.md](./api-spec-change-status-int.md) — 既存属性の型変更シナリオ

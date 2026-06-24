@@ -170,7 +170,7 @@ chmod +x scripts/curl-api-smoke.sh
 ホストに Node が入っていても、**依存のインストール・ビルドはコンテナ内だけ**で行います。
 
 ```bash
-composer npm:docker-ci      # rm -rf node_modules && npm ci
+composer npm:docker-ci      # コンテナ内 npm ci（node_modules は npm ci がクリーンアップ）
 composer npm:docker-build   # 上記 + npm run build
 docker compose --profile node run --rm node npm run lint
 docker compose --profile node run --rm --service-ports node npm run dev   # Vite 開発サーバー

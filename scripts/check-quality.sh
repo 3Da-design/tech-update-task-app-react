@@ -10,7 +10,7 @@ docker compose exec -T app composer phpstan
 
 echo ""
 echo "== Frontend dependencies (Docker / npm ci) =="
-docker compose --profile node run --rm node sh -c "rm -rf node_modules && npm ci"
+"$ROOT/scripts/npm-docker-ci.sh"
 
 echo ""
 echo "== ESLint (実行前・構文・規約) =="

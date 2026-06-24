@@ -47,10 +47,10 @@
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
         ],
         "npm:docker-ci": [
-            "docker compose --profile node run --rm node sh -c \"rm -rf node_modules && npm ci\""
+            "bash scripts/npm-docker-ci.sh"
         ],
         "npm:docker-build": [
-            "docker compose --profile node run --rm node sh -c \"rm -rf node_modules && npm ci && npm run build\""
+            "bash scripts/npm-docker-ci.sh --build"
         ],
         "phpstan": "phpstan analyse --memory-limit=1G",
         "test": [

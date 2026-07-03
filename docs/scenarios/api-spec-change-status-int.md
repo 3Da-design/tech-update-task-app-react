@@ -1,141 +1,730 @@
 # シナリオ: API 仕様変更 — 既存属性の型変更（`api-spec-change-status-int`）
 
-## 目的
+## 目次
 
-既存フィールド `status` を string（`todo` / `in_progress` / `done`）から integer（`0` / `1` / `2`）へ変更し、**破壊的な API 仕様変更の波及範囲**を、属性追加（`api-spec-change-priority`）と比較する。
+## 0. この実験について
 
-## 想定される破壊箇所
+本実験は、タスクの `status` を string（`todo` / `in_progress` / `done`）から integer（`0` / `1` / `2`）へ変更する破壊的 API 仕様変更を適用し、その波及範囲を計測する。既存フィールドの型変更は、属性追加（priority）や DB スキーマ変更（タイトル検索）と対比し、技術更新時の修正コスト・失敗パターンの違いを評価するのに適している。improved 構成では Controller は HTTP 受け渡しのみとし、正規化は `TaskService`、永続化・一覧クエリは `TaskRepository`、HTTP バリデーションは FormRequest×3、表示ラベルは `config/task.php` と View に修正が集まる想定である。`TaskResource` は Model の integer cast により JSON も自動的に int になるため触らない。
 
-| 構成 | 主な修正箇所 |
-|------|--------------|
-| 改良構成 | `config/task.php`, FormRequest×3, `TaskService`, `TaskRepository`, `TaskRepositoryInterface`（PHPDoc）, `Task` Model, migration（データ移行）, テスト, Web View |
-| 従来構成 | 上記に加え **Web/API Controller 内の normalize / バリデーション** も同時修正 |
+## 1. 概要
 
-**触れない（改良構成）:** Controller、Interface のメソッドシグネチャ、`TaskResource`（Model の integer cast により JSON も int になる）
+| 項目 | 値 |
+| --- | --- |
+| リポジトリ | improved |
+| 実験の内容 | `status` を string から integer（0/1/2）へ変更 |
+| ブランチ名 | exp/api-spec-change-status-int |
+| 参照MD | docs/scenarios/api-spec-change-status-int.md |
 
-## 事前条件
+## 2. 事前条件チェック
 
-- `experiment-baseline-v1` タグまたは同等の CI 緑状態
-- CI / ローカルテストが **PostgreSQL** で実行されていること（マイグレーションが PostgreSQL 専用 SQL のため）
-- `baseline` メトリクス取得済み
+- [ ]  experiment-baseline-v1 または CI 緑 — 変更前の正しいベースラインと diff 比較の基準点が必要なため
+- [ ]  Docker 起動 — `docker compose exec app` でマイグレーション・テスト・Newman を実行するため
+- [ ]  PostgreSQL（status数値化・タイトル検索のみ） — マイグレーションが PostgreSQL 専用 `ALTER COLUMN ... USING CASE` を使うため
 
-## 変更内容（両リポジトリで同一適用）
+## 3. 修正対象ファイル一覧
 
-### 1. マッピング定義
+| # | ファイルパス | 修正箇所 | フェーズ | 作業内容 | 解説（なぜ触るか） |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `database/migrations/*_change_status_to_integer_on_tasks_table.php` | `up()` / `down()` | 2 | 新規作成 | DB カラム型変更と既存データ移行のため |
+| 2 | `config/task.php` | `status_values`, `status_labels` | 2 | int マッピング定義 | 全層が参照する status の正規値・表示ラベルの単一ソース |
+| 3 | `app/Models/Task.php` | PHPDoc 15行目、`casts()` | 2 | integer cast 追加 | Eloquent が status を int として扱うため |
+| 4 | `app/Http/Requests/StoreTaskRequest.php` | `rules()` 29行目 | 2 | `string` → `integer` | POST 入力の HTTP 境界バリデーション |
+| 5 | `app/Http/Requests/UpdateTaskRequest.php` | `rules()` 29行目 | 2 | `string` → `integer` | PUT 入力の HTTP 境界バリデーション |
+| 6 | `app/Http/Requests/IndexTaskRequest.php` | `rules()` 43行目 | 2 | `string` → `integer` | 一覧フィルタ `?status=` のバリデーション |
+| 7 | `app/Services/TaskService.php` | `normalizeListFilters()` 74–92行目、`normalizeTaskPayload()` 126行前 | 2 | int 正規化ロジック | Controller を触らずユースケース層で型を揃えるため |
+| 8 | `app/Repositories/TaskRepository.php` | `getFiltered()` 20–23行目 | 2 | `is_string` → `is_int` | 一覧クエリの status 比較を int に合わせるため |
+| 9 | `app/Repositories/Contracts/TaskRepositoryInterface.php` | PHPDoc 11行目 | 2 | `status?: string` → `status?: int` | フィルタ型の契約を実装と一致させるため |
+| 10 | `resources/views/tasks/_form.blade.php` | 34–37行目 | 2 | option value=int、表示=labels | 作成・編集フォームの送信値を int にするため |
+| 11 | `resources/views/tasks/index.blade.php` | 31–34行目、85行目 | 2 | フィルタ option + 一覧表示を labels | 一覧フィルタ送信と人間可読表示を int 仕様に合わせるため |
+| 12 | `tests/Feature/TaskApiTest.php` | 全 `status` 参照（39, 54, 67, 78, 93, 99, 111, 125行目ほか） | 4 | 期待値を int に | API テストを新仕様に合わせるため |
+| 13 | `tests/Feature/TaskWebTest.php` | 全 `status` 参照（29, 50, 63, 76, 82, 87, 92, 102行目ほか） | 4 | 期待値を int に | Web テストを新仕様に合わせるため |
+| 14 | `tests/Feature/TaskListFilterTest.php` | 38, 98行目のクエリ、127–151行目の seed | 4 | `?status=2` 等に変更 | status フィルタテストを int クエリに合わせるため |
+| 15 | `postman/Task-API.postman_collection.json` | 195, 255行目の request body | 4 | `"status": 0` / `1` に変更 | Newman が新 API 仕様で通るようにするため |
 
-`config/task.php` を int ベースに変更:
+## 4. 実施手順
 
-```php
-'status_values' => [0, 1, 2],
-'status_labels' => [
-    0 => 'todo',
-    1 => 'in_progress',
-    2 => 'done',
-],
-```
+### Phase 0: ブランチ作成
 
-### 2. 永続化
+**この Phase の目的:** 実験用ブランチを baseline タグから切り、以降の変更を独立して計測できるようにする。
 
-- マイグレーション: `tasks.status` を string → smallint（**PostgreSQL 専用**）
-- **既存行のデータ移行**（`todo`→0, `in_progress`→1, `done`→2）
-
-例:
-
-```php
-DB::statement("
-  ALTER TABLE tasks
-  ALTER COLUMN status TYPE smallint
-  USING (
-    CASE status
-      WHEN 'todo' THEN 0
-      WHEN 'in_progress' THEN 1
-      WHEN 'done' THEN 2
-      ELSE 0
-    END
-  )
-");
-```
-
-- `Task` Model: `'status' => 'integer'` cast、PHPDoc を `@property int $status` に更新
-
-### 3. HTTP 境界
-
-- **`StoreTaskRequest` / `UpdateTaskRequest`:** `integer` + `Rule::in(config('task.status_values'))`
-- **`IndexTaskRequest`:** 一覧フィルタ `?status=` も int 化
-
-### 4. ユースケース・永続化
-
-- **`TaskService::normalizeTaskPayload`:** `status` を `(int)` キャスト
-- **`TaskService::normalizeListFilters`:** `is_numeric` + `in_array(..., config('task.status_values'))` で int 正規化
-- **`TaskRepository::getFiltered`:** status フィルタを `is_int` 比較に変更
-- **`TaskRepositoryInterface`:** PHPDoc の `status?: string` を `status?: int` に更新
-
-### 5. Web
-
-- `tasks/_form.blade.php`, `tasks/index.blade.php` — option value を int、表示は `config('task.status_labels')`
-
-### 6. テスト・Postman
-
-- `TaskApiTest`, `TaskWebTest` — 既存の **全 status アサーション**を int 期待値に書き換え
-- **`TaskListFilterTest`**（main に既存）— status フィルタテストを int 化（例: `?status=2` で `done` 相当のタスクがヒット）
-- `postman/Task-API.postman_collection.json` — status 期待値を int に更新
-
-| ファイル | 変更 |
-|---------|------|
-| `config/task.php` | `status_values` → `[0,1,2]`、`status_labels` 追加 |
-| migration | PostgreSQL `ALTER COLUMN ... USING CASE` |
-| `app/Models/Task.php` | integer cast、PHPDoc |
-| FormRequest×3 | `string` → `integer` |
-| `app/Services/TaskService.php` | `normalizeTaskPayload` / `normalizeListFilters` |
-| `app/Repositories/TaskRepository.php` | status フィルタを `is_int` 比較に |
-| `app/Repositories/Contracts/TaskRepositoryInterface.php` | PHPDoc `status?: int` |
-| `resources/views/tasks/_form.blade.php` / `index.blade.php` | option value = int、表示 = labels |
-| テスト群 | 上記 3 テストファイル + Postman |
-
-## 実施手順
+**Step 0-1.** 実験ブランチを作成する。
 
 ```bash
 git checkout -b exp/api-spec-change-status-int experiment-baseline-v1
+```
 
+---
+
+### Phase 1: baseline メトリクス
+
+**この Phase の目的:** 変更前の状態を記録し、あとで diff 比較できるようにする。
+
+**Step 1-1.** baseline フェーズのメトリクスを取得する。
+
+```bash
 composer experiment:metrics -- --phase baseline --diff-ref experiment-baseline-v1
+```
 
-# 1. マイグレーション作成（PostgreSQL データ移行含む）・適用
+---
+
+### Phase 2: 変更適用（テスト・Postman 未着手）
+
+**この Phase の目的:** 仕様変更を本番コードに適用し、テスト未修正の失敗状態（after_update）を計測できるようにする。
+
+**Step 2-1.** マイグレーションファイルを生成する。
+
+```bash
 docker compose exec app php artisan make:migration change_status_to_integer_on_tasks_table
+```
+
+**Step 2-2.** 生成されたマイグレーションを編集する。
+
+- **ファイル:** `database/migrations/*_change_status_to_integer_on_tasks_table.php`（Step 2-1 で生成されたパス）
+- **場所:** `up()` / `down()` メソッド全体
+- **解説:** PostgreSQL 専用 SQL で既存 string 値を int に移行し、カラム型を smallint に変更する。
+- **変更前:** （空の `up()` / `down()` スタブ）
+- **変更後:**
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Support\Facades\DB;
+
+return new class extends Migration
+{
+  public function up(): void
+  {
+    DB::statement("
+      ALTER TABLE tasks
+      ALTER COLUMN status TYPE smallint
+      USING (
+        CASE status
+          WHEN 'todo' THEN 0
+          WHEN 'in_progress' THEN 1
+          WHEN 'done' THEN 2
+          ELSE 0
+        END
+      )
+    ");
+  }
+
+  public function down(): void
+  {
+    DB::statement("
+      ALTER TABLE tasks
+      ALTER COLUMN status TYPE varchar(255)
+      USING (
+        CASE status
+          WHEN 0 THEN 'todo'
+          WHEN 1 THEN 'in_progress'
+          WHEN 2 THEN 'done'
+          ELSE 'todo'
+        END
+      )
+    ");
+  }
+};
+```
+
+**Step 2-3.** マイグレーションを適用する。
+
+```bash
 docker compose exec app php artisan migrate
+```
 
-# 2. config / Request×3 / Service / Model / Repository / View を編集
-#    （テスト・Postman はまだ触らない）
+**Step 2-4.** config の status 定義を int ベースに変更する。
 
+- **ファイル:** `config/task.php`
+- **場所:** 5行目 `status_values`
+- **解説:** 全層が参照する status の許可値と表示ラベルを int ベースで定義する。
+- **変更前:**
+
+```php
+  'status_values' => ['todo', 'in_progress', 'done'],
+```
+
+- **変更後:**
+
+```php
+  'status_values' => [0, 1, 2],
+  'status_labels' => [
+    0 => 'todo',
+    1 => 'in_progress',
+    2 => 'done',
+  ],
+```
+
+**Step 2-5.** Model に integer cast と PHPDoc を追加する。
+
+- **ファイル:** `app/Models/Task.php`
+- **場所:** PHPDoc 15行目、`casts()` 21–26行目
+- **解説:** Eloquent が DB の smallint を PHP int として扱い、JSON 出力も int になるようにする。
+- **変更前:**
+
+```php
+ * @property string $status
+```
+
+```php
+  protected function casts(): array
+  {
+    return [
+      'due_date' => 'date',
+    ];
+  }
+```
+
+- **変更後:**
+
+```php
+ * @property int $status
+```
+
+```php
+  protected function casts(): array
+  {
+    return [
+      'status' => 'integer',
+      'due_date' => 'date',
+    ];
+  }
+```
+
+**Step 2-6.** StoreTaskRequest の status バリデーションを integer に変更する。
+
+- **ファイル:** `app/Http/Requests/StoreTaskRequest.php`
+- **場所:** `rules()` 29行目
+- **解説:** POST リクエストの status を int として受け付ける HTTP 境界にする。
+- **変更前:**
+
+```php
+      'status' => ['required', 'string', Rule::in(config('task.status_values'))],
+```
+
+- **変更後:**
+
+```php
+      'status' => ['required', 'integer', Rule::in(config('task.status_values'))],
+```
+
+**Step 2-7.** UpdateTaskRequest の status バリデーションを integer に変更する。
+
+- **ファイル:** `app/Http/Requests/UpdateTaskRequest.php`
+- **場所:** `rules()` 29行目
+- **解説:** PUT リクエストの status を int として受け付ける HTTP 境界にする。
+- **変更前:**
+
+```php
+      'status' => ['sometimes', 'required', 'string', Rule::in(config('task.status_values'))],
+```
+
+- **変更後:**
+
+```php
+      'status' => ['sometimes', 'required', 'integer', Rule::in(config('task.status_values'))],
+```
+
+**Step 2-8.** IndexTaskRequest の status フィルタバリデーションを integer に変更する。
+
+- **ファイル:** `app/Http/Requests/IndexTaskRequest.php`
+- **場所:** `rules()` 43行目
+- **解説:** 一覧クエリ `?status=` を int として検証する HTTP 境界にする。
+- **変更前:**
+
+```php
+      'status' => ['nullable', 'string', Rule::in(config('task.status_values'))],
+```
+
+- **変更後:**
+
+```php
+      'status' => ['nullable', 'integer', Rule::in(config('task.status_values'))],
+```
+
+**Step 2-9.** TaskService の normalizeListFilters を int 正規化に変更する。
+
+- **ファイル:** `app/Services/TaskService.php`
+- **場所:** `normalizeListFilters()` 74–92行目
+- **解説:** Controller を触らず、一覧フィルタの status を許可された int に正規化して Repository に渡す。
+- **変更前:**
+
+```php
+   * @return array{title?: string, status?: string, due_date_sort?: string}
+   */
+  private function normalizeListFilters(array $query): array
+  {
+    $filters = [];
+
+    if (isset($query['title']) && is_string($query['title'])) {
+      $title = trim($query['title']);
+      if ($title !== '') {
+        $filters['title'] = $title;
+      }
+    }
+
+    if (isset($query['status']) && is_string($query['status'])) {
+      $status = trim($query['status']);
+      if ($status !== '') {
+        $filters['status'] = $status;
+      }
+    }
+```
+
+- **変更後:**
+
+```php
+   * @return array{title?: string, status?: int, due_date_sort?: string}
+   */
+  private function normalizeListFilters(array $query): array
+  {
+    $filters = [];
+
+    if (isset($query['title']) && is_string($query['title'])) {
+      $title = trim($query['title']);
+      if ($title !== '') {
+        $filters['title'] = $title;
+      }
+    }
+
+    if (isset($query['status']) && is_numeric($query['status'])) {
+      $status = (int) $query['status'];
+      if (in_array($status, config('task.status_values'), true)) {
+        $filters['status'] = $status;
+      }
+    }
+```
+
+**Step 2-10.** TaskService の normalizeTaskPayload に status の int キャストを追加する。
+
+- **ファイル:** `app/Services/TaskService.php`
+- **場所:** `normalizeTaskPayload()` `return $data;` の直前（126行前）
+- **解説:** 作成・更新ペイロードの status を永続化前に int に揃える。
+- **変更前:**
+
+```php
+    }
+
+    return $data;
+  }
+}
+```
+
+- **変更後:**
+
+```php
+    }
+
+    if (array_key_exists('status', $data)) {
+      $data['status'] = (int) $data['status'];
+    }
+
+    return $data;
+  }
+}
+```
+
+**Step 2-11.** TaskRepository の status フィルタ比較を is_int に変更する。
+
+- **ファイル:** `app/Repositories/TaskRepository.php`
+- **場所:** `getFiltered()` 20–23行目
+- **解説:** 正規化済み int フィルタで DB クエリを組み立てる。
+- **変更前:**
+
+```php
+    $status = $filters['status'] ?? null;
+    if (is_string($status) && $status !== '') {
+      $query->where('status', $status);
+    }
+```
+
+- **変更後:**
+
+```php
+    $status = $filters['status'] ?? null;
+    if (is_int($status)) {
+      $query->where('status', $status);
+    }
+```
+
+**Step 2-12.** TaskRepositoryInterface の PHPDoc を更新する。
+
+- **ファイル:** `app/Repositories/Contracts/TaskRepositoryInterface.php`
+- **場所:** PHPDoc 11行目
+- **解説:** インターフェースのフィルタ型注釈を実装と一致させる（メソッドシグネチャは変更しない）。
+- **変更前:**
+
+```php
+   * @param  array{title?: string, status?: string, due_date_sort?: string}  $filters
+```
+
+- **変更後:**
+
+```php
+   * @param  array{title?: string, status?: int, due_date_sort?: string}  $filters
+```
+
+**Step 2-13.** フォームの status セレクトを int value + ラベル表示に変更する。
+
+- **ファイル:** `resources/views/tasks/_form.blade.php`
+- **場所:** 34–37行目
+- **解説:** フォーム送信値を int にしつつ、ユーザーには文字ラベルを表示する。
+- **変更前:**
+
+```php
+            @foreach (config('task.status_values') as $status)
+                <option value="{{ $status }}" @selected(old('status', $task?->status ?? '') === $status)>
+                    {{ $status }}
+                </option>
+            @endforeach
+```
+
+- **変更後:**
+
+```php
+            @foreach (config('task.status_values') as $status)
+                <option value="{{ $status }}" @selected((int) old('status', $task?->status ?? '') === $status)>
+                    {{ config('task.status_labels')[$status] }}
+                </option>
+            @endforeach
+```
+
+**Step 2-14.** 一覧のフィルタ・表示を int value + ラベル表示に変更する。
+
+- **ファイル:** `resources/views/tasks/index.blade.php`
+- **場所:** 31–34行目（フィルタ）、85行目（一覧表示）
+- **解説:** 一覧フィルタの送信値を int にし、テーブルにはラベルを表示する。9行目の `session('status')` はフラッシュメッセージ用のため変更しない。
+- **変更前:**
+
+```php
+                        @foreach (config('task.status_values') as $status)
+                            <option value="{{ $status }}" @selected(old('status', request('status')) === $status)>
+                                {{ $status }}
+                            </option>
+                        @endforeach
+```
+
+```php
+                            <td>{{ $task->status }}</td>
+```
+
+- **変更後:**
+
+```php
+                        @foreach (config('task.status_values') as $status)
+                            <option value="{{ $status }}" @selected((int) old('status', request('status', '')) === $status)>
+                                {{ config('task.status_labels')[$status] }}
+                            </option>
+                        @endforeach
+```
+
+```php
+                            <td>{{ config('task.status_labels')[$task->status] ?? $task->status }}</td>
+```
+
+**Step 2-15.** フロント資産を Docker 経由でビルドする。
+
+```bash
 composer npm:docker-build
+```
 
+---
+
+### Phase 3: after_update メトリクス
+
+**この Phase の目的:** テスト未修正のまま、どれだけ壊れたかを数値化する。
+
+**Step 3-1.** 変更をコミットする。
+
+```bash
+git add database/ config/ app/ resources/
+git commit -m "$(cat <<'EOF'
+feat: change task status from string to integer
+Migration, config, model, requests, TaskService, TaskRepository, and Blade views.
+Tests and Postman are intentionally unchanged for after_update measurement.
+EOF
+)"
+```
+
+**Step 3-2.** after_update フェーズのメトリクスを取得する（PHPUnit / Newman の失敗数を記録）。
+
+```bash
 composer experiment:metrics -- --phase after_update --diff-ref experiment-baseline-v1
+```
 
-# 3. テスト・Postman・View を修正して CI 緑に
+---
+
+### Phase 4: テスト・Postman 修正 → CI 緑
+
+**この Phase の目的:** 仕様変更に合わせてテストと Postman を直し、修正工数（after_fix）を計測可能にする。
+
+**Step 4-1.** TaskApiTest の status 期待値を int に書き換える。
+
+- **ファイル:** `tests/Feature/TaskApiTest.php`
+- **場所:** ファイル全体の `status` 参照
+- **解説:** API Feature テストが新しい int status 仕様と一致するようにする。
+- **変更前（代表箇所）:**
+
+```php
+      'status' => 'todo',
+```
+
+```php
+      'status' => 'in_progress',
+```
+
+```php
+      'status' => 'invalid',
+```
+
+- **変更後（代表箇所）:**
+
+```php
+      'status' => 0,
+```
+
+```php
+      'status' => 1,
+```
+
+```php
+      'status' => 'invalid',  // 422 テストは文字列のまま（バリデーションエラー確認用）
+```
+
+全置換対応表:
+
+| 変更前 | 変更後 |
+| --- | --- |
+| `'status' => 'todo'` | `'status' => 0` |
+| `'status' => 'in_progress'` | `'status' => 1` |
+| `'status' => 'done'` | `'status' => 2` |
+
+**Step 4-2.** TaskWebTest の status 期待値を int に書き換える。
+
+- **ファイル:** `tests/Feature/TaskWebTest.php`
+- **場所:** ファイル全体の `status` 参照
+- **解説:** Web Feature テストとリダイレクト先クエリの status パラメータを int に合わせる。
+- **変更前（代表箇所）:**
+
+```php
+      'status' => 'todo',
+```
+
+```php
+      'status' => 'in_progress',
+```
+
+```php
+    $response->assertRedirect(route('tasks.index', [
+      'title' => 'After',
+      'status' => 'in_progress',
+    ]));
+```
+
+```php
+      'status' => 'in_progress',
+```
+
+- **変更後（代表箇所）:**
+
+```php
+      'status' => 0,
+```
+
+```php
+      'status' => 1,
+```
+
+```php
+    $response->assertRedirect(route('tasks.index', [
+      'title' => 'After',
+      'status' => 1,
+    ]));
+```
+
+```php
+      'status' => 1,
+```
+
+**Step 4-3.** TaskListFilterTest の status フィルタと seed データを int に書き換える。
+
+- **ファイル:** `tests/Feature/TaskListFilterTest.php`
+- **場所:** 38行目、98行目、127–151行目
+- **解説:** フィルタクエリとシードデータを int status に合わせ、`done` 相当は `2` で検証する。
+- **変更前:**
+
+```php
+    $response = $this->actingAs($this->user)->get('/tasks?status=done');
+```
+
+```php
+    $response = $this->actingAs($this->user)->getJson('/api/tasks?status=done');
+```
+
+```php
+      'status' => 'todo',
+```
+
+```php
+      'status' => 'done',
+```
+
+```php
+      'status' => 'in_progress',
+```
+
+- **変更後:**
+
+```php
+    $response = $this->actingAs($this->user)->get('/tasks?status=2');
+```
+
+```php
+    $response = $this->actingAs($this->user)->getJson('/api/tasks?status=2');
+```
+
+```php
+      'status' => 0,
+```
+
+```php
+      'status' => 2,
+```
+
+```php
+      'status' => 1,
+```
+
+**Step 4-4.** Postman コレクションの request body を int status に更新する。
+
+- **ファイル:** `postman/Task-API.postman_collection.json`
+- **場所:** 195行目、255行目（`raw` body）
+- **解説:** Newman が POST/PUT で int status を送り、新 API 仕様で通るようにする。422 テスト（226行目）は `"invalid"` のまま。
+- **変更前:**
+
+```json
+"raw": "{\n  \"title\": \"Postman task\",\n  \"status\": \"todo\"\n}"
+```
+
+```json
+"raw": "{\n  \"title\": \"Updated from Postman\",\n  \"status\": \"in_progress\"\n}"
+```
+
+- **変更後:**
+
+```json
+"raw": "{\n  \"title\": \"Postman task\",\n  \"status\": 0\n}"
+```
+
+```json
+"raw": "{\n  \"title\": \"Updated from Postman\",\n  \"status\": 1\n}"
+```
+
+**Step 4-5.** CI 相当の品質チェックを実行し、すべて緑にする。
+
+```bash
 ./scripts/check-quality.sh
+```
 
+---
+
+### Phase 5: after_fix メトリクス・記録
+
+**Step 5-1.** 変更をコミットする。
+
+```bash
+git add tests/ postman/
+git commit -m "$(cat <<'EOF'
+test: update tests and Postman for status integer
+
+Align Feature tests and Newman collection with 0/1/2 status values.
+EOF
+)"
+```
+
+**Step 5-2.** after_fix フェーズのメトリクスを取得する。
+
+```bash
 composer experiment:metrics -- --phase after_fix --diff-ref experiment-baseline-v1
+```
 
+**Step 5-3.** 実験記録を生成する。
+
+```bash
 composer experiment:record -- --scenario api-spec-change-status-int --write
+```
+
+**Step 5-4.** 結果を experiment/results/ に公開する。
+
+```bash
 ./scripts/publish-experiment-results.sh --scenario api-spec-change-status-int
 ```
 
-## 記録するメトリクス（主指標）
+**Step 5-5.** 手動項目を追加する。
 
-| 優先 | 指標 | 取得元 |
-|------|------|--------|
-| 1 | 変更ファイル数 | `git.files_changed`（`--diff-ref experiment-baseline-v1`） |
-| 2 | 追加 / 削除行数 | `git.lines_added` / `git.lines_deleted` |
-| 3 | 更新直後のテスト失敗数 | `phpunit.fail` / `newman.fail`（`after_update`） |
-| 4 | 作業時間（分） | 手動（テンプレート） |
+**Step 5-6.** 結果をコミット・プッシュする。
 
-**期待される差:** 従来構成は `files_changed` が改良構成より **+2（Web / API Controller）** 程度多い。
+```bash
+git add experiment/results/api-spec-change-status-int/
+git commit -m "docs(experiment): publish api-spec-change-status-int results"
+git push -u origin exp/api-spec-change-status-int
+```
 
-## 完了条件
+**Step 5-7.** PRを作成し、CIを確認する。
 
+```bash
+gh pr create --base main --head exp/api-spec-change-status-int \
+  --title "exp: api-spec-change-status-int（improved）" \
+  --body "$(cat <<'EOF'
+## Summary
+- タスク `status` を string から integer（0/1/2）へ変更する実験
+- improved 構成（TaskService / TaskRepository に集約）
+
+## Test plan
 - [ ] GitHub Actions 4 ジョブすべて成功
-- [ ] 3 フェーズ JSON がある
-- [ ] `experiment/results/` に結果をコピー（`scripts/publish-experiment-results.sh`）
-- [ ] 従来構成リポジトリ（`tech-update-task-app-legacy`）で同一手順を実施
+- [ ] `experiment/results/api-spec-change-status-int/` に 3 フェーズ JSON + RECORD.md がある
+
+実験用 PR。マージはしない。
+EOF
+)"
+```
+
+**Step 5-8.** 結果を公開ディレクトリにコピーする。
+
+```bash
+./scripts/publish-experiment-results.sh --scenario api-spec-change-status-int
+```
+
+**Step 5-9.** 結果を手動で変更し、コミット・プッシュする。
+
+```bash
+git add experiment/results/api-spec-change-status-int/RECORD.md
+git commit -m "$(cat <<'EOF'
+docs: fill manual experiment record for api-spec-change-status-int
+
+Add CI, work time, commits, and notes to the manual recording table.
+EOF
+)"
+git push origin exp/api-spec-change-status-int
+```
+
+---
+
+## 5. 完了条件
+
+- [ ]  GitHub Actions 4 ジョブすべて成功（`./scripts/check-quality.sh` がローカルで緑）
+- [ ]  `baseline` / `after_update` / `after_fix` の 3 フェーズ JSON が `experiment/metrics/` に存在する
+- [ ]  `experiment/results/` に結果がコピーされている（`publish-experiment-results.sh` 実行済み）
+- [ ]  従来構成リポジトリ（`tech-update-task-app-legacy`）で同一手順を実施済み（比較実験）
+
+## 6. 触らないファイルとその理由
+
+| ファイル | 理由 |
+| --- | --- |
+| `app/Http/Controllers/Web/TaskController.php` | improved 構成では Controller は HTTP 受け渡しのみとし、正規化は TaskService に集約する実験設計のため |
+| `app/Http/Controllers/API/TaskController.php` | 同上。legacy との差（Controller 内修正の有無）を計測する対照群のため |
+| `app/Http/Resources/TaskResource.php` | Model の `integer` cast により JSON 出力の `status` も自動的に int になるため変更不要 |
+| `database/migrations/2026_05_12_052659_create_tasks_table.php` | 既存マイグレーションは変更せず、新規マイグレーションで型変更・データ移行を行うため |
 
 ## 関連
 

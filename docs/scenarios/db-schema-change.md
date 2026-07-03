@@ -1,95 +1,279 @@
 # シナリオ: DB / クエリ変更（タイトル検索の大文字小文字）
 
-## 目的
+## 目次
 
-永続化層・検索クエリの変更が **Repository に集約されるか**（改良構成）と **Controller 2 箇所に分散するか**（従来構成）を比較する。
+## 0. この実験について
 
-API 仕様変更（`priority` 追加）とは異なり、**主な修正箇所がクエリ層**になる点が特徴です。
+タスク一覧の `?title=` 部分一致検索を、PostgreSQL 上で大文字小文字を区別しない挙動に変更する実験です。現状は `where('title', 'like', ...)` による区別あり検索（`TaskRepository` 17 行目）のため、`Important task` に `?title=important` ではヒットしません。
 
-## 想定される破壊箇所
+この変更は永続化層のクエリ修正であり、API の入出力形式は変わりません。改良構成と従来構成で「修正が Repository 1 箇所に集約されるか、Controller 2 箇所に分散するか」を比較するのに適したシナリオです。
 
-| 構成 | 主な修正箇所 |
-|------|--------------|
-| 改良構成 | `TaskRepository::getFiltered` のみ |
-| 従来構成 | `Web\TaskController` と `API\TaskController` 内の `listTasks` クエリ **両方** |
+improved 構成では、本番コードの修正は `TaskRepository::getFiltered` のみに集約されます。Controller・Service・Interface は触りません。テスト追加は Phase 4 で行い、Phase 2 では Repository のクエリのみを変更します。
 
-## 事前条件
+## 1. 概要
 
-- `experiment-baseline-v1` タグ（または同等の CI 緑状態の main）
-- CI / ローカルテストが **PostgreSQL** で実行されていること（`LIKE` の大文字小文字挙動を開発環境と一致させる）
-- `baseline` メトリクス取得済み
+| 項目 | 値 |
+| --- | --- |
+| リポジトリ | improved |
+| 実験の内容 | タイトル検索を大文字小文字無視にする |
+| ブランチ名 | exp/db-schema-change |
+| 参照MD | docs/scenarios/db-schema-change.md |
 
-## 変更内容（両リポジトリで同一適用）
+## 2. 事前条件チェック
 
-### 1. テストの追加（シナリオ開始時）
+- [ ]  experiment-baseline-v1 または CI 緑 — 比較基準タグからブランチを切り、メトリクス diff の参照点を固定するため
+- [ ]  Docker 起動 — `check-quality.sh` と PHPUnit / Newman がコンテナ経由で動くため
+- [ ]  PostgreSQL（status数値化・タイトル検索のみ） — `LIKE` の大文字小文字挙動を CI（GitHub Actions の `postgres:16-alpine`）とローカル Docker で一致させるため
 
-既存の `tests/Feature/TaskListFilterTest.php` に以下を **追加**（ベースラインの CI を一時的に赤くする想定）:
+## 3. 修正対象ファイル一覧
 
-- `test_web_index_title_search_is_case_insensitive`
-- `test_api_index_title_search_is_case_insensitive`
+| # | ファイルパス | 修正箇所 | フェーズ | 作業内容 | 解説（なぜ触るか） |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `app/Repositories/TaskRepository.php` | `getFiltered()` 15–18 行目 | Phase 2 | `LOWER(title) LIKE ?` に変更 | タイトル検索の大文字小文字無視はクエリ層の責務であり、改良構成ではここだけ直せば Web/API 両方に反映される |
+| 2 | `tests/Feature/TaskListFilterTest.php` | クラス末尾（`seedTasks()` の前） | Phase 4 | ケース無視テスト 2 件を追加 | 新仕様を自動検証し、回帰を防ぐ。シナリオ MD で定義されたテスト名・期待値を実装する |
+| 3 | `postman/Task-API.postman_collection.json` | （任意） | Phase 4 | 変更なしで可 | 現コレクションにタイトルフィルタのリクエストはなく、CI の Newman は既存テストのみ実行されるため必須ではない |
 
-例: タイトル `Important task` に対し `?title=important` でヒットすること。
+## 4. 実施手順
 
-### 2. クエリの変更
+### Phase 0: ブランチ作成
 
-タイトル部分一致を **大文字小文字を区別しない** 検索に変更する。
+**この Phase の目的:** `experiment-baseline-v1` から実験ブランチを切り、以降の変更をベースラインと分離する。
 
-**改良構成（推奨実装）** — Repository のみ:
-
-```php
-$query->whereRaw('LOWER(title) LIKE ?', ['%'.mb_strtolower($this->escapeLike($title)).'%']);
-```
-
-既存の `TaskRepository::escapeLike` を利用する。
-
-**従来構成** — Web / API Controller の `listTasks` 内の `where('title', 'like', ...)` を同様に変更（2 ファイル）。
-
-> PostgreSQL 専用の `ilike` でもよいが、本研究では **移植性のある LOWER 比較** を推奨（CI と Docker の一致）。
-
-### 3. 適用順序
-
-1. 上記テストを追加 → `after_update` メトリクス（失敗想定）
-2. クエリのみ変更（Controller / Service は触らない）→ まだ失敗の可能性
-3. テストが緑になるまでクエリを修正 → `after_fix` メトリクス
-
-## 実施手順
+**Step 0-1.** 実験ブランチを作成する
 
 ```bash
 git checkout -b exp/db-schema-change experiment-baseline-v1
+```
 
+---
+
+### Phase 1: baseline メトリクス
+
+**この Phase の目的:** 変更前の状態を記録し、あとで diff 比較できるようにする。
+
+**Step 1-1.** baseline フェーズのメトリクスを取得する
+
+```bash
 composer experiment:metrics -- --phase baseline --diff-ref experiment-baseline-v1
+```
 
-# 1. TaskListFilterTest に case-insensitive テストを追加
+---
+
+### Phase 2: 変更適用（テスト・Postman 未着手）
+
+**この Phase の目的:** タイトル検索クエリを大文字小文字無視に変更し、本番コード側の仕様変更を完了する（テストはまだ触らない）。
+
+**Step 2-1.** `TaskRepository::getFiltered` のタイトルフィルタを修正する
+
+- **ファイル:** `app/Repositories/TaskRepository.php`
+- **場所:** `TaskRepository::getFiltered()` 行 15–18
+- **解説:** 現状の `where('title', 'like', ...)` は PostgreSQL でも大文字小文字を区別する。`LOWER` 比較に置き換えることで、Web/API 共通の検索ロジックを Repository 1 箇所で修正できる。
+- **変更前:**
+
+```php
+    $title = $filters['title'] ?? null;
+    if (is_string($title) && $title !== '') {
+      $query->where('title', 'like', '%'.$this->escapeLike($title).'%');
+    }
+```
+
+- **変更後:**
+
+```php
+    $title = $filters['title'] ?? null;
+    if (is_string($title) && $title !== '') {
+      $query->whereRaw('LOWER(title) LIKE ?', ['%'.mb_strtolower($this->escapeLike($title)).'%']);
+    }
+```
+
+---
+
+### Phase 3: after_update メトリクス
+
+**この Phase の目的:** テスト未修正のまま、どれだけ壊れたかを数値化する。
+
+**Step 3-1.** 変更をコミットする
+
+```bash
+git add app/Repositories/TaskRepository.php
+git commit -m "$(cat <<'EOF'
+feat: タイトル検索を大文字小文字無視に変更（TaskRepository）
+
+EOF
+)"
+```
+
+**Step 3-2.** after_update フェーズのメトリクスを取得する
+
+```bash
 composer experiment:metrics -- --phase after_update --diff-ref experiment-baseline-v1
+```
 
-# 2. Repository（改良）または Controller×2（従来）でクエリ修正
+> **補足:** 既存の `TaskListFilterTest` は `title=Foo` で `Foo task` を検索しており、ケース無視化後も通過する。新規のケース無視テストは Phase 4 で追加するため、この時点の `phpunit.fail` は **0 の可能性が高い**（シナリオ MD の「テスト先行追加」手順とは異なるが、Phase 2/4 分離フォーマットに沿った想定内の挙動）。
+> 
+
+---
+
+### Phase 4: テスト・Postman 修正 → CI 緑
+
+**この Phase の目的:** 新仕様（大文字小文字無視）をテストで固定し、CI を緑にする。
+
+**Step 4-1.** ケース無視テスト 2 件を `TaskListFilterTest` に追加する
+
+- **ファイル:** `tests/Feature/TaskListFilterTest.php`
+- **場所:** `test_api_index_sorts_due_date_desc()` の直後（行 125 の後）、`seedTasks()` の前
+- **解説:** シナリオ MD で定義されたテスト名で、Web/API それぞれ `Important task` に `?title=important` がヒットすることを検証する。Phase 2 で Repository を直済みのため、このテスト追加後は即座に緑になる想定。
+- **変更前:** （該当メソッドなし）
+- **変更後:** 以下 2 メソッドを追加
+
+```php
+  public function test_web_index_title_search_is_case_insensitive(): void
+  {
+    Task::query()->create([
+      'user_id' => $this->user->id,
+      'title' => 'Important task',
+      'description' => null,
+      'status' => 'todo',
+      'due_date' => null,
+    ]);
+
+    $response = $this->actingAs($this->user)->get('/tasks?title=important');
+
+    $response->assertOk();
+    $response->assertSee('Important task', false);
+  }
+
+  public function test_api_index_title_search_is_case_insensitive(): void
+  {
+    Task::query()->create([
+      'user_id' => $this->user->id,
+      'title' => 'Important task',
+      'description' => null,
+      'status' => 'todo',
+      'due_date' => null,
+    ]);
+
+    $response = $this->actingAs($this->user)->getJson('/api/tasks?title=important');
+
+    $response->assertOk();
+    $titles = collect($response->json('data'))->pluck('title')->all();
+    $this->assertSame(['Important task'], $titles);
+  }
+```
+
+**Step 4-2.** CI 品質チェックを実行する
+
+```bash
 ./scripts/check-quality.sh
+```
 
-# 3. after_fix 計測
+> **補足:** フロントエンド変更はないため `composer npm:docker-build` は不要。`check-quality.sh` 内で ESLint・Vite build が実行される。
+> 
+
+---
+
+### Phase 5: after_fix メトリクス・記録
+
+**この Phase の目的:** Phase 4 のテスト変更をコミットし、最終メトリクスを取得・公開して PR と手動記録まで完了する。
+
+**前提:** Phase 4 で `./scripts/check-quality.sh` が緑であること。
+
+**Step 5-1.** 変更をコミットする。
+
+```bash
+git add tests/Feature/TaskListFilterTest.php
+git commit -m "$(cat <<'EOF'
+test: add case-insensitive title search tests
+
+Add web/API filter tests for db-schema-change scenario.
+EOF
+)"
+```
+
+**Step 5-2.** after_fix フェーズのメトリクスを取得する。
+
+```bash
 composer experiment:metrics -- --phase after_fix --diff-ref experiment-baseline-v1
+```
 
+**Step 5-3.** 実験記録を書き込む。
+
+```bash
 composer experiment:record -- --scenario db-schema-change --write
+```
+
+**Step 5-4.** 結果を公開ディレクトリにコピーする。
+
+```bash
 ./scripts/publish-experiment-results.sh --scenario db-schema-change
 ```
 
-## 記録するメトリクス（主指標）
+**Step 5-5.** 結果をコミット・プッシュする。
 
-| 優先 | 指標 | 取得元 |
-|------|------|--------|
-| 1 | 変更ファイル数 | `git.files_changed`（`--diff-ref experiment-baseline-v1`） |
-| 2 | 追加 / 削除行数 | `git.lines_added` / `git.lines_deleted` |
-| 3 | 更新直後のテスト失敗数 | `phpunit.fail` / `newman.fail`（`after_update`） |
-| 4 | 作業時間（分） | 手動（テンプレート） |
+```bash
+git add experiment/results/db-schema-change/
+git commit -m "$(cat <<'EOF'
+docs: publish experiment results for db-schema-change
 
-**期待される差:** 従来構成は `files_changed` が改良構成より **+1（Web Controller）** 程度多い。
+Record baseline, after_update, and after_fix metrics for the
+case-insensitive title search scenario on the improved architecture.
+EOF
+)"
+git push -u origin exp/db-schema-change
+```
 
-## 完了条件
+**Step 5-6.** PR を作って CI を確認する。
 
-- [ ] GitHub Actions 4 ジョブすべて成功（`after_fix`）
-- [ ] `experiment/metrics/runs/<run_id>/` に 3 フェーズ JSON がある
-- [ ] `experiment/results/` に結果をコピー（`scripts/publish-experiment-results.sh`）
-- [ ] 改良 vs legacy で `git.files_changed` を各リポジトリの `experiment/results/` で比較
-- [ ] 従来構成リポジトリ（`tech-update-task-app-legacy`）で同一手順を実施
+```bash
+gh pr create --base main --head exp/db-schema-change \
+  --title "exp: db-schema-change" \
+  --body "実験用。マージはしない。"
+```
+
+**Step 5-7.** 結果を公開ディレクトリにコピーする。
+
+```bash
+./scripts/publish-experiment-results.sh --scenario db-schema-change
+```
+
+**Step 5-8.** 結果を手動で変更し、コミット・プッシュする。
+
+```bash
+git add experiment/results/db-schema-change/RECORD.md
+git commit -m "$(cat <<'EOF'
+docs: fill manual experiment record for db-schema-change
+
+Add CI, work time, commits, and notes to the manual recording table.
+EOF
+)"
+git push origin exp/db-schema-change
+```
+
+---
+
+## 5. 完了条件
+
+- [ ]  GitHub Actions 4 ジョブ（`php-tests` / `php-quality` / `frontend` / `api-tests`）すべて成功（`after_fix`）
+- [ ]  `experiment/metrics/runs/<run_id>/` に `baseline` / `after_update` / `after_fix` の 3 フェーズ JSON がある
+- [ ]  `experiment/results/` に `publish-experiment-results.sh` の出力がある
+- [ ]  `?title=important` で `Important task` が Web・API 両方でヒットする
+- [ ]  既存の `title=Foo` 部分一致テストが引き続き通過する
+- [ ]  legacy リポジトリ（`tech-update-task-app-legacy`）で同一シナリオを実施し、`git.files_changed` を比較できる
+
+## 6. 触らないファイルとその理由
+
+| ファイル | 理由 |
+| --- | --- |
+| `app/Http/Controllers/Web/TaskController.php` | improved 構成のルール。Controller は HTTP 受け渡しのみで、検索ロジックは Service → Repository に委譲されている |
+| `app/Http/Controllers/API/TaskController.php` | 同上。API も `TaskService::listForDefaultUser` 経由で Repository に到達する |
+| `app/Services/TaskService.php` | タイトル文字列の正規化（trim）のみで、大文字小文字変換はクエリ層の責務 |
+| `app/Repositories/Contracts/TaskRepositoryInterface.php` | db-schema シナリオでは Repository 実装のみ変更。インターフェースのシグネチャ・PHPDoc は不変 |
+| `app/Http/Resources/TaskResource.php` | レスポンス形式の変更はなく、検索挙動のみの変更 |
+| `app/Http/Requests/IndexTaskRequest.php` | `title` クエリパラメータの受け入れルールは変更不要 |
+| `app/Models/Task.php` | DB スキーマ・Model 属性の変更はない（クエリのみ変更） |
+| `database/migrations/*` | カラム追加・型変更はなく、`LOWER()` によるクエリ変更で完結する |
+| `resources/views/tasks/*` | フロントの表示・フォームに変更なし |
+| `postman/Task-API.postman_collection.json` | タイトルフィルタのリクエストがなく、CI Newman は既存コレクションで緑のまま（任意で追加可能） |
 
 ## 関連
 

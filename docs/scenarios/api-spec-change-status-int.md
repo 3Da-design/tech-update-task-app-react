@@ -2,6 +2,21 @@
 
 ## 目次
 
+- [0. この実験について](#0-この実験について)
+- [1. 概要](#1-概要)
+- [2. 事前条件チェック](#2-事前条件チェック)
+- [3. 修正対象ファイル一覧](#3-修正対象ファイル一覧)
+- [4. 実施手順](#4-実施手順)
+  - [Phase 0: ブランチ作成](#phase-0-ブランチ作成)
+  - [Phase 1: baseline メトリクス](#phase-1-baseline-メトリクス)
+  - [Phase 2: 変更適用（テスト・Postman 未着手）](#phase-2-変更適用テストpostman-未着手)
+  - [Phase 3: after_update メトリクス](#phase-3-after_update-メトリクス)
+  - [Phase 4: テスト・Postman 修正 → CI 緑](#phase-4-テストpostman-修正-ci-緑)
+  - [Phase 5: after_fix メトリクス・記録](#phase-5-after_fix-メトリクス・記録)
+- [5. 完了条件](#5-完了条件)
+- [6. 触らないファイルとその理由](#6-触らないファイルとその理由)
+- [関連](#関連)
+
 ## 0. この実験について
 
 本実験は、タスクの `status` を string（`todo` / `in_progress` / `done`）から integer（`0` / `1` / `2`）へ変更する破壊的 API 仕様変更を適用し、その波及範囲を計測する。既存フィールドの型変更は、属性追加（priority）や DB スキーマ変更（タイトル検索）と対比し、技術更新時の修正コスト・失敗パターンの違いを評価するのに適している。improved 構成では Controller は HTTP 受け渡しのみとし、正規化は `TaskService`、永続化・一覧クエリは `TaskRepository`、HTTP バリデーションは FormRequest×3、表示ラベルは `config/task.php` と View に修正が集まる想定である。`TaskResource` は Model の integer cast により JSON も自動的に int になるため触らない。

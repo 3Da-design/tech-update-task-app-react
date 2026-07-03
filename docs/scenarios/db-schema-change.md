@@ -2,6 +2,21 @@
 
 ## 目次
 
+- [0. この実験について](#0-この実験について)
+- [1. 概要](#1-概要)
+- [2. 事前条件チェック](#2-事前条件チェック)
+- [3. 修正対象ファイル一覧](#3-修正対象ファイル一覧)
+- [4. 実施手順](#4-実施手順)
+  - [Phase 0: ブランチ作成](#phase-0-ブランチ作成)
+  - [Phase 1: baseline メトリクス](#phase-1-baseline-メトリクス)
+  - [Phase 2: 変更適用（テスト・Postman 未着手）](#phase-2-変更適用テストpostman-未着手)
+  - [Phase 3: after_update メトリクス](#phase-3-after_update-メトリクス)
+  - [Phase 4: テスト・Postman 修正 → CI 緑](#phase-4-テストpostman-修正-ci-緑)
+  - [Phase 5: after_fix メトリクス・記録](#phase-5-after_fix-メトリクス・記録)
+- [5. 完了条件](#5-完了条件)
+- [6. 触らないファイルとその理由](#6-触らないファイルとその理由)
+- [関連](#関連)
+
 ## 0. この実験について
 
 タスク一覧の `?title=` 部分一致検索を、PostgreSQL 上で大文字小文字を区別しない挙動に変更する実験です。現状は `where('title', 'like', ...)` による区別あり検索（`TaskRepository` 17 行目）のため、`Important task` に `?title=important` ではヒットしません。

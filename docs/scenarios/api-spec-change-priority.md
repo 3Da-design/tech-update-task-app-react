@@ -2,6 +2,21 @@
 
 ## 目次
 
+- [0. この実験について](#0-この実験について)
+- [1. 概要](#1-概要)
+- [2. 事前条件チェック](#2-事前条件チェック)
+- [3. 修正対象ファイル一覧](#3-修正対象ファイル一覧)
+- [4. 実施手順](#4-実施手順)
+  - [Phase 0: ブランチ作成](#phase-0-ブランチ作成)
+  - [Phase 1: baseline メトリクス](#phase-1-baseline-メトリクス)
+  - [Phase 2: 変更適用（テスト・Postman 未着手）](#phase-2-変更適用テストpostman-未着手)
+  - [Phase 3: after_update メトリクス](#phase-3-after_update-メトリクス)
+  - [Phase 4: テスト・Postman 修正 → CI 緑](#phase-4-テストpostman-修正-ci-緑)
+  - [Phase 5: after_fix メトリクス・記録](#phase-5-after_fix-メトリクス・記録)
+- [5. 完了条件](#5-完了条件)
+- [6. 触らないファイルとその理由](#6-触らないファイルとその理由)
+- [関連](#関連)
+
 ## 0. この実験について
 
 タスク REST API と Web UI に新属性 `priority`（`low` / `medium` / `high`、デフォルト `medium`）を追加する実験です。既存クライアントが `priority` を送らなくても動作する**非破壊的な属性追加**であり、legacy 構成（Controller 内に正規化・一覧クエリあり）と比べて修正が何ファイルに分散するかを測ります。**完全版**では CRUD に加え、一覧の**表示・フィルタ（`?priority=`）・並び替え（`?priority_sort=asc|desc`）**まで legacy と parity を取ります。improved では属性の正規化は `TaskService::normalizeTaskPayload`、一覧クエリは `IndexTaskRequest` → `normalizeListFilters` → `TaskRepository::getFiltered` に集約され、legacy との差は主に **Controller 2 ファイル（一覧クエリ + normalizeTaskPayload）** として `git.files_changed` に現れます。

@@ -142,7 +142,18 @@ git tag -a experiment-baseline-v1 -m "Experiment baseline: improved architecture
 5. テスト・コードを修正し CI を緑にする
 6. `after_fix` でメトリクス収集
 7. [メトリクス記録テンプレート](#メトリクス記録テンプレート) に記録
-8. 従来構成リポジトリ（`tech-update-task-app-legacy`）で 3〜7 を繰り返し、比較表を作成
+8. 従来構成リポジトリ（`tech-update-task-app-legacy`）で 3〜7 を繰り返し、各リポジトリの `experiment/results/<scenario-id>/` で比較
+
+## 結果の配置ルール
+
+legacy / improved の **両リポジトリで同一のパス規則** を用いる。構成の区別はリポジトリ名で行い、パスに `legacy/` 等の接頭辞は付けない。
+
+| 項目 | ルール |
+|------|--------|
+| 配置先 | `experiment/results/<scenario-id>/` |
+| `<scenario-id>` | [scenarios/](./scenarios/) の MD ファイル名（拡張子なし）。例: `db-schema-change` |
+| 公開コマンド | `scripts/publish-experiment-results.sh --scenario <scenario-id>` |
+| 比較 | legacy と improved で **同名ディレクトリ**（例: 両方とも `experiment/results/db-schema-change/`）を対応させる |
 
 ## メトリクス記録テンプレート
 

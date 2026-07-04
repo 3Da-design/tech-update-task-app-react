@@ -1,0 +1,19 @@
+repository	scenario	phase	recorded_at	phpunit_pass	phpunit_total	phpunit_pass_rate	newman_pass	newman_total	newman_pass_rate	phpstan_errors	eslint_ok	ci_jobs_failed	ci_jobs_total	work_minutes	files_changed	lines_added	lines_deleted	commits	manual_bugs	notes
+legacy	api-spec-change-status-int	baseline	20260703T061225Z	47	47	100.0	13	13	100.0	0	1			10	0	0	0	0	0	変更前
+legacy	api-spec-change-status-int	after_update	20260703T061344Z	30	47	63.83	10	13	76.92	0	1			45	10	81	28	1	0	テスト・Postman 未修正（PHPUnit 17失敗、Newman 3失敗）
+legacy	api-spec-change-status-int	after_fix	20260703T061457Z	47	47	100.0	13	13	100.0	0	1	0	4	50	14	103	50	2	0	テスト・Postman 修正完了
+improved	api-spec-change-status-int	baseline	20260703T062340Z	47	47	100.0	13	13	100.0	0	1	0	4	10	0	0	0	0	0	変更なし（baseline 計測）
+improved	api-spec-change-status-int	after_update	20260703T062501Z	30	47	63.83	10	13	76.92	0	1	2	4	20	11	65	16	1	0	PHPUnit 17失敗・Newman 3失敗（テスト・Postman未修正）
+improved	api-spec-change-status-int	after_fix	20260703T062604Z	47	47	100.0	13	13	100.0	0	1	0	4	30	15	87	38	2	0	主指標: 15 files, +87/-38。Controller 未変更
+legacy	api-spec-change-priority	baseline	20260703T063745Z	47	47	100.0	13	13	100.0	0	1			10	0	0	0	0	0	変更前（baseline 計測）
+legacy	api-spec-change-priority	after_update	20260703T064012Z	47	47	100.0	13	13	100.0	0	1			45	11	157	12	1	0	PHPUnit/Newman 0失敗（非破壊的変更・テスト・Postman 未修正でも緑）
+legacy	api-spec-change-priority	after_fix	20260703T064309Z	52	52	100.0	15	15	100.0	0	1	0	4	50	15	263	19	2	0	priority 用テスト・Postman 追加完了（Web/API Controller 2 箇所変更済み）
+improved	api-spec-change-priority	baseline	20260703T065152Z	47	47	100.0	13	13	100.0	0	1	0	4	10	0	0	0	0	0	変更なし（baseline 計測）
+improved	api-spec-change-priority	after_update	20260703T065436Z	47	47	100.0	13	13	100.0	0	1	0	4	20	13	120	7	1	0	PHPUnit/Newman 0失敗（非破壊的変更・テスト未修正でも緑）
+improved	api-spec-change-priority	after_fix	20260703T065612Z	54	54	100.0	15	15	100.0	0	1	0	4	30	17	268	10	2	0	主指標: 17 files, +268/-10。API Controller 未変更
+legacy	db-schema-change	baseline	20260704T044055Z	47	47	100.0	13	13	100.0	0	1			5	0	0	0	0	0	変更前
+legacy	db-schema-change	after_update	20260704T044112Z	47	47	100.0	13	13	100.0	0	1			15	2	2	2	1	0	ケース無視テスト未追加（PHPUnit/Newman 全通過）
+legacy	db-schema-change	after_fix	20260704T044150Z	49	49	100.0	13	13	100.0	0	1	0	4	15	3	35	2	2	0	ケース無視テスト追加完了
+improved	db-schema-change	baseline	20260704T044846Z	47	47	100.0	13	13	100.0	0	1			5	0	0	0	0	0	baseline 計測のみ
+improved	db-schema-change	after_update	20260704T044903Z	47	47	100.0	13	13	100.0	0	1			5	1	1	1	1	0	TaskRepository の LOWER 比較に変更
+improved	db-schema-change	after_fix	20260704T044951Z	49	49	100.0	13	13	100.0	0	1	0	4	10	2	34	1	3	0	ケース無視テスト 2 件追加、check-quality 緑

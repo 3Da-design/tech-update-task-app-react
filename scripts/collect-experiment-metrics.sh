@@ -218,19 +218,9 @@ PY
   )
 fi
 
-GIT_SHORTSTAT=""
-GIT_FILES_CHANGED=""
-GIT_LINES_ADDED=""
-GIT_LINES_DELETED=""
-if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
-  if [[ -n "$DIFF_REF" ]]; then
-    GIT_SHORTSTAT="$(git diff --shortstat "${DIFF_REF}..HEAD" 2>/dev/null | tr -d '\n' || true)"
-  else
-    GIT_SHORTSTAT="$(git diff --shortstat 2>/dev/null | tr -d '\n' || true)"
-  fi
-  if [[ -n "$GIT_SHORTSTAT" ]]; then
-    read -r GIT_FILES_CHANGED GIT_LINES_ADDED GIT_LINES_DELETED < <(
-      python3 - "$GIT_SHORTSTAT" <<'PY'
+parse_git_shortstat() {
+  local stat="$1"
+  python3 - "$stat" <<'PY'
 import re, sys
 text = sys.argv[1].strip()
 files = additions = deletions = 0
@@ -245,7 +235,29 @@ if m:
     deletions = int(m.group(1))
 print(files, additions, deletions)
 PY
-    )
+}
+
+GIT_SHORTSTAT=""
+GIT_FILES_CHANGED=""
+GIT_LINES_ADDED=""
+GIT_LINES_DELETED=""
+GIT_APP_SHORTSTAT=""
+GIT_APP_FILES_CHANGED=""
+GIT_APP_LINES_ADDED=""
+GIT_APP_LINES_DELETED=""
+if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+  if [[ -n "$DIFF_REF" ]]; then
+    GIT_SHORTSTAT="$(git diff --shortstat "${DIFF_REF}..HEAD" 2>/dev/null | tr -d '\n' || true)"
+    GIT_APP_SHORTSTAT="$(git diff --shortstat "${DIFF_REF}..HEAD" -- . ':(exclude)experiment/results' ':(exclude)experiment/metrics' 2>/dev/null | tr -d '\n' || true)"
+  else
+    GIT_SHORTSTAT="$(git diff --shortstat 2>/dev/null | tr -d '\n' || true)"
+    GIT_APP_SHORTSTAT="$(git diff --shortstat -- . ':(exclude)experiment/results' ':(exclude)experiment/metrics' 2>/dev/null | tr -d '\n' || true)"
+  fi
+  if [[ -n "$GIT_SHORTSTAT" ]]; then
+    read -r GIT_FILES_CHANGED GIT_LINES_ADDED GIT_LINES_DELETED < <(parse_git_shortstat "$GIT_SHORTSTAT")
+  fi
+  if [[ -n "$GIT_APP_SHORTSTAT" ]]; then
+    read -r GIT_APP_FILES_CHANGED GIT_APP_LINES_ADDED GIT_APP_LINES_DELETED < <(parse_git_shortstat "$GIT_APP_SHORTSTAT")
   fi
 fi
 
@@ -261,8 +273,9 @@ fi
 
 export OUTPUT PHASE TIMESTAMP RUN_ID PHPSTAN_EXIT PHPSTAN_ERRORS ESLINT_EXIT BUILD_EXIT PHPUNIT_EXIT NEWMAN_EXIT
 export PHPUNIT_PASS PHPUNIT_FAIL PHPUNIT_TOTAL NEWMAN_PASS NEWMAN_FAIL NEWMAN_TOTAL
-export phpunit_rate newman_rate GIT_SHORTSTAT DIFF_REF
+export phpunit_rate newman_rate GIT_SHORTSTAT GIT_APP_SHORTSTAT DIFF_REF
 export GIT_FILES_CHANGED GIT_LINES_ADDED GIT_LINES_DELETED
+export GIT_APP_FILES_CHANGED GIT_APP_LINES_ADDED GIT_APP_LINES_DELETED
 
 python3 - <<'PY'
 import json, os
@@ -300,12 +313,21 @@ doc = {
         "pass_rate": float(os.environ["newman_rate"]),
         "ok": int(os.environ["NEWMAN_EXIT"]) == 0,
     },
+    "git_app": {
+        "diff_ref": os.environ.get("DIFF_REF", "") or None,
+        "files_changed": int(os.environ.get("GIT_APP_FILES_CHANGED") or 0),
+        "lines_added": int(os.environ.get("GIT_APP_LINES_ADDED") or 0),
+        "lines_deleted": int(os.environ.get("GIT_APP_LINES_DELETED") or 0),
+        "diff_shortstat": os.environ.get("GIT_APP_SHORTSTAT", ""),
+        "excludes": ["experiment/results/", "experiment/metrics/"],
+    },
     "git": {
         "diff_ref": os.environ.get("DIFF_REF", "") or None,
         "files_changed": int(os.environ.get("GIT_FILES_CHANGED") or 0),
         "lines_added": int(os.environ.get("GIT_LINES_ADDED") or 0),
         "lines_deleted": int(os.environ.get("GIT_LINES_DELETED") or 0),
         "diff_shortstat": os.environ.get("GIT_SHORTSTAT", ""),
+        "includes_experiment_metadata": True,
     },
 }
 path = os.environ["OUTPUT"]

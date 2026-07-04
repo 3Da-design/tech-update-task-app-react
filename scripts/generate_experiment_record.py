@@ -33,9 +33,12 @@ SPREADSHEET_HEADERS = [
     "ci_jobs_failed",
     "ci_jobs_total",
     "work_minutes",
-    "files_changed",
-    "lines_added",
-    "lines_deleted",
+    "app_files_changed",
+    "app_lines_added",
+    "app_lines_deleted",
+    "meta_files_changed",
+    "meta_lines_added",
+    "meta_lines_deleted",
     "commits",
     "manual_bugs",
     "metrics_json",
@@ -48,6 +51,17 @@ def load_json(path: Path) -> dict | None:
         return None
     with path.open(encoding="utf-8") as f:
         return json.load(f)
+
+
+def git_section(data: dict | None, key: str) -> dict:
+    if data is None:
+        return {}
+    section = data.get(key)
+    if section:
+        return section
+    if key == "git_app":
+        return data.get("git", {})
+    return {}
 
 
 def fmt_rate(rate: object) -> str:
@@ -86,6 +100,16 @@ def fmt_phpstan(data: dict | None) -> str:
     return f"{count} 件"
 
 
+def fmt_git_line(section: dict) -> str:
+    if not section:
+        return "—"
+    files_changed = section.get("files_changed", "")
+    lines_added = section.get("lines_added", "")
+    lines_deleted = section.get("lines_deleted", "")
+    stat = section.get("diff_shortstat", "") or "（なし）"
+    return f"{files_changed} files, +{lines_added} / -{lines_deleted} (`{stat}`)"
+
+
 def spreadsheet_row(
     scenario: str,
     phase: str,
@@ -98,7 +122,7 @@ def spreadsheet_row(
             scenario,
             phase,
             "",
-            *([""] * 15),
+            *([""] * 20),
             f"(missing {phase}.json)",
             "",
         ]
@@ -109,7 +133,8 @@ def spreadsheet_row(
     nm = data.get("newman", {})
     ps = data.get("phpstan", {})
     es = data.get("eslint", {})
-    git = data.get("git", {})
+    git_app = git_section(data, "git_app")
+    git_meta = data.get("git", {})
     json_rel = f"experiment/metrics/runs/{run_id}/{phase}.json"
 
     return [
@@ -127,13 +152,17 @@ def spreadsheet_row(
         "1" if es.get("ok") else "0",
         "",
         "",
-        str(git.get("files_changed", "")),
-        str(git.get("lines_added", "")),
-        str(git.get("lines_deleted", "")),
+        "",
+        str(git_app.get("files_changed", "")),
+        str(git_app.get("lines_added", "")),
+        str(git_app.get("lines_deleted", "")),
+        str(git_meta.get("files_changed", "")),
+        str(git_meta.get("lines_added", "")),
+        str(git_meta.get("lines_deleted", "")),
         "",
         "",
         json_rel,
-        str(git.get("diff_shortstat", "")),
+        str(git_app.get("diff_shortstat", "")),
     ]
 
 
@@ -159,6 +188,10 @@ def build_markdown(run_id: str, scenario: str, phases: dict[str, dict | None]) -
         "\n手動項目（CI・作業時間・コミット数など）は [手動記入](#manual) の表に追記してください。"
         " スプレッドシートへそのまま貼る場合は [TSV（全列）](#tsv) を使えます。\n"
     )
+    lines.append(
+        "\n**修正工数:** 主指標は `git_app`（`experiment/results/`・`experiment/metrics/` を除外したアプリ差分）。"
+        " `git` は実験メタデータ（結果 JSON 等）を含む参考値です。\n"
+    )
 
     lines.append("\n## 自動収集サマリー\n\n")
     lines.append("| フェーズ | 記録時刻 | PHPUnit | Newman | PHPStan | ESLint |\n")
@@ -181,9 +214,9 @@ def build_markdown(run_id: str, scenario: str, phases: dict[str, dict | None]) -
 
     lines.append('\n<a id="manual"></a>\n\n## 手動記入（実験者が追記）\n\n')
     lines.append(
-        "| フェーズ | CI (失敗/総数) | 作業時間 (分) | 変更ファイル | 追加行 | 削除行 | コミット数 | 手動バグ | メモ |\n"
+        "| フェーズ | CI (失敗/総数) | 作業時間 (分) | アプリ変更ファイル | アプリ追加行 | アプリ削除行 | コミット数 | 手動バグ | メモ |\n"
     )
-    lines.append("|:---------|:---------------|:--------------|:-------------|:-------|:-------|:-----------|:---------|:-----|\n")
+    lines.append("|:---------|:---------------|:--------------|:-------------------|:-------------|:-------------|:-----------|:---------|:-----|\n")
     for phase in PHASE_ORDER:
         label = PHASE_LABELS[phase]
         lines.append(f"| {label} | | | | | | | | |\n")
@@ -197,17 +230,14 @@ def build_markdown(run_id: str, scenario: str, phases: dict[str, dict | None]) -
         if data is None:
             lines.append(f"- **JSON:** `{json_path}` — **なし**\n\n")
             continue
-        stat = data.get("git", {}).get("diff_shortstat", "") or "（なし）"
-        files_changed = data.get("git", {}).get("files_changed", "")
-        lines_added = data.get("git", {}).get("lines_added", "")
-        lines_deleted = data.get("git", {}).get("lines_deleted", "")
-        diff_ref = data.get("git", {}).get("diff_ref") or ""
+        git_app = git_section(data, "git_app")
+        git_meta = data.get("git", {})
+        diff_ref = git_meta.get("diff_ref") or git_app.get("diff_ref") or ""
         lines.append(f"- **JSON:** [`{phase}.json`]({json_path})\n")
         if diff_ref:
             lines.append(f"- **git diff_ref:** `{diff_ref}`\n")
-        lines.append(
-            f"- **git:** {files_changed} files, +{lines_added} / -{lines_deleted} (`{stat}`)\n\n"
-        )
+        lines.append(f"- **git_app（アプリ修正工数・主指標）:** {fmt_git_line(git_app)}\n")
+        lines.append(f"- **git（実験メタデータ込み）:** {fmt_git_line(git_meta)}\n\n")
 
     lines.append('<a id="tsv"></a>\n\n<details>\n<summary>スプレッドシート用 TSV（全列）</summary>\n\n')
     lines.append("```tsv\n")
@@ -225,7 +255,6 @@ def scenario_from_existing_record(record_path: Path) -> str | None:
         return None
     for line in record_path.read_text(encoding="utf-8").splitlines():
         if "scenario" in line and "`" in line:
-            # legacy: - **scenario:** `id`  or table | **シナリオ** | `id` |
             parts = line.split("`")
             if len(parts) >= 2:
                 candidate = parts[1].strip()
@@ -243,7 +272,7 @@ def main() -> int:
     parser.add_argument(
         "--scenario",
         default="",
-        help="Scenario id (e.g. api-spec-change-priority). Default: parse existing RECORD.md or (unset)",
+        help="Scenario id (e.g. api-spec-change). Default: parse existing RECORD.md or (unset)",
     )
     parser.add_argument(
         "--write",

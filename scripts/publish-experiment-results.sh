@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # experiment/metrics/runs/<run_id>/ を experiment/results/<scenario>/ にコピーする
+# legacy リポジトリ: --scenario legacy/<scenario-id>
+# improved リポジトリ: --scenario <scenario-id>
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

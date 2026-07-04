@@ -19,7 +19,7 @@
 
 ## 0. この実験について
 
-タスク REST API と Web UI に新属性 `priority`（`low` / `medium` / `high`、デフォルト `medium`）を追加する実験です。既存クライアントが `priority` を送らなくても動作する**非破壊的な属性追加**であり、legacy 構成（Controller 内に正規化・一覧クエリあり）と比べて修正が何ファイルに分散するかを測ります。**完全版**では CRUD に加え、一覧の**表示・フィルタ（`?priority=`）・並び替え（`?priority_sort=asc|desc`）**まで legacy と parity を取ります。improved では属性の正規化は `TaskService::normalizeTaskPayload`、一覧クエリは `IndexTaskRequest` → `normalizeListFilters` → `TaskRepository::getFiltered` に集約され、legacy との差は主に **Controller 2 ファイル（一覧クエリ + normalizeTaskPayload）** として `git.files_changed` に現れます。
+タスク REST API と Web UI に新属性 `priority`（`low` / `medium` / `high`、デフォルト `medium`）を追加する実験です。既存クライアントが `priority` を送らなくても動作する**非破壊的な属性追加**であり、legacy 構成（Controller 内に正規化・一覧クエリあり）と比べて修正が何ファイルに分散するかを測ります。**完全版**では CRUD に加え、一覧の**表示・フィルタ（`?priority=`）・並び替え（`?priority_sort=asc|desc`）**まで legacy と parity を取ります。improved では属性の正規化は `TaskService::normalizeTaskPayload`、一覧クエリは `IndexTaskRequest` → `normalizeListFilters` → `TaskRepository::getFiltered` に集約され、legacy との差は主に **Controller 2 ファイル（一覧クエリ + normalizeTaskPayload）** として `git_app.files_changed` に現れます。
 
 ---
 

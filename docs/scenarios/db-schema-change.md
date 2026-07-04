@@ -273,7 +273,7 @@ git push origin exp/db-schema-change
 - [ ]  `experiment/results/` に `publish-experiment-results.sh` の出力がある
 - [ ]  `?title=important` で `Important task` が Web・API 両方でヒットする
 - [ ]  既存の `title=Foo` 部分一致テストが引き続き通過する
-- [ ]  legacy リポジトリ（`tech-update-task-app-legacy`）で同一シナリオを実施し、`git.files_changed` を比較できる
+- [ ]  legacy リポジトリ（`tech-update-task-app-legacy`）で同一シナリオを実施し、`git_app.files_changed` を比較できる
 
 ## 6. 触らないファイルとその理由
 

@@ -6,50 +6,64 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * S2: ログインは React SPA が /api/login を JSON で呼ぶ方式に変更（Blade /login は廃止）。
+ */
 class AuthenticationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_login_screen_can_be_rendered(): void
+    public function test_guest_cannot_access_current_user_endpoint(): void
     {
-        $response = $this->get('/login');
+        $response = $this->getJson('/api/user');
 
-        $response->assertStatus(200);
-        $response->assertSee('新規登録', false);
+        $response->assertUnauthorized();
     }
 
-    public function test_users_can_authenticate_using_the_login_screen(): void
+    public function test_users_can_authenticate_via_api_login(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->post('/login', [
+        $response = $this->postJson('/api/login', [
             'email' => $user->email,
             'password' => 'password',
         ]);
 
+        $response->assertOk();
+        $response->assertJsonPath('data.email', $user->email);
         $this->assertAuthenticated();
-        $response->assertRedirect(route('tasks.index', absolute: false));
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
         $user = User::factory()->create();
 
-        $this->post('/login', [
+        $response = $this->postJson('/api/login', [
             'email' => $user->email,
             'password' => 'wrong-password',
         ]);
 
+        $response->assertStatus(422);
         $this->assertGuest();
+    }
+
+    public function test_authenticated_user_can_be_fetched(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->getJson('/api/user');
+
+        $response->assertOk();
+        $response->assertJsonPath('email', $user->email);
     }
 
     public function test_users_can_logout(): void
     {
         $user = User::factory()->create();
 
-        $response = $this->actingAs($user)->post('/logout');
+        $response = $this->actingAs($user)->postJson('/api/logout');
 
+        $response->assertNoContent();
         $this->assertGuest();
-        $response->assertRedirect('/');
     }
 }

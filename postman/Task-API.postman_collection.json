@@ -1,303 +1,339 @@
 {
-  "info": {
-    "name": "Task API",
-    "description": "Laravel Breeze セッション認証で /api/tasks を検証するコレクション。\n\n**Collection Runner:** Health → Auth → Tasks API（Save cookies ON）\n\n**419:** GET /login のあと POST /login。Cookie の値を _token に使わない（HTML の csrf-token のみ）。",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "event": [
-    {
-      "listen": "prerequest",
-      "script": {
-        "type": "text/javascript",
-        "exec": [
-          "const baseUrl = pm.environment.get('baseUrl');",
-          "const url = pm.request.url.toString();",
-          "const method = pm.request.method;",
-          "",
-          "if (!baseUrl || method === 'GET' || method === 'HEAD') {",
-          "  return;",
-          "}",
-          "",
-          "// POST /login はフォームの _token のみ（X-XSRF-TOKEN ヘッダーは付けない）",
-          "if (method === 'POST' && url.includes('/login')) {",
-          "  return;",
-          "}",
-          "",
-          "const xsrf = pm.cookies.get('XSRF-TOKEN', baseUrl);",
-          "if (xsrf) {",
-          "  pm.request.headers.upsert({",
-          "    key: 'X-XSRF-TOKEN',",
-          "    value: decodeURIComponent(xsrf),",
-          "  });",
-          "}",
-          "",
-          "pm.request.headers.upsert({ key: 'Referer', value: baseUrl + '/login' });",
-          "pm.request.headers.upsert({ key: 'Origin', value: baseUrl });",
-          "pm.request.headers.upsert({ key: 'X-Requested-With', value: 'XMLHttpRequest' });"
-        ]
-      }
-    }
-  ],
-  "item": [
-    {
-      "name": "Health",
-      "item": [
-        {
-          "name": "GET /up",
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": "{{baseUrl}}/up"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Auth",
-      "item": [
-        {
-          "name": "GET /login (CSRF cookie)",
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Accept", "value": "text/html" }],
-            "url": "{{baseUrl}}/login"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const baseUrl = pm.environment.get('baseUrl');",
-                  "",
-                  "pm.test('login page 200', () => pm.response.to.have.status(200));",
-                  "pm.test('CSRF ready (cookie or meta)', () => {",
-                  "  const xsrf = pm.cookies.get('XSRF-TOKEN', baseUrl);",
-                  "  const token = pm.collectionVariables.get('csrfToken');",
-                  "  pm.expect(xsrf || token, 'XSRF-TOKEN or csrf-token meta').to.be.ok;",
-                  "});",
-                  "",
-                  "const html = pm.response.text();",
-                  "const meta = html.match(/name=[\"']csrf-token[\"']\\s+content=[\"']([^\"']+)[\"']/);",
-                  "pm.test('csrf-token meta found', () => {",
-                  "  pm.expect(meta, 'meta csrf-token').to.not.be.null;",
-                  "});",
-                  "if (meta && meta[1]) {",
-                  "  pm.collectionVariables.set('csrfToken', meta[1]);",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "POST /login",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Accept", "value": "application/json" },
-              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
-            ],
-            "body": {
-              "mode": "urlencoded",
-              "urlencoded": [
-                { "key": "_token", "value": "{{csrfToken}}", "type": "text" },
-                { "key": "email", "value": "{{email}}", "type": "text" },
-                { "key": "password", "value": "{{password}}", "type": "text" }
-              ]
-            },
-            "url": "{{baseUrl}}/login"
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "const token = pm.collectionVariables.get('csrfToken');",
-                  "if (!token) {",
-                  "  throw new Error('csrfToken が空です。先に GET /login (CSRF cookie) を実行してください。');",
-                  "}",
-                  "const body = pm.request.body.urlencoded;",
-                  "const row = body.get('_token');",
-                  "if (row) {",
-                  "  row.value = token;",
-                  "} else {",
-                  "  body.add({ key: '_token', value: token });",
-                  "}"
-                ]
-              }
-            },
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('not CSRF rejected', () => {",
-                  "  pm.expect(pm.response.code, '419=CSRF不一致').to.not.equal(419);",
-                  "});",
-                  "pm.test('login succeeds (2xx or redirect)', () => {",
-                  "  pm.expect(pm.response.code).to.be.oneOf([200, 204, 302]);",
-                  "});"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "Tasks API",
-      "item": [
-        {
-          "name": "GET /api/tasks",
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/tasks"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('has data array', () => {",
-                  "  pm.expect(pm.response.json().data).to.be.an('array');",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "POST /api/tasks (valid)",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Accept", "value": "application/json" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Postman task\",\n  \"status\": \"todo\"\n}"
-            },
-            "url": "{{baseUrl}}/api/tasks"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 201', () => pm.response.to.have.status(201));",
-                  "const json = pm.response.json();",
-                  "const id = json.data && json.data.id;",
-                  "if (id) {",
-                  "  pm.collectionVariables.set('taskId', String(id));",
-                  "}"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "POST /api/tasks (invalid status → 422)",
-          "request": {
-            "method": "POST",
-            "header": [
-              { "key": "Accept", "value": "application/json" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"t\",\n  \"status\": \"invalid\"\n}"
-            },
-            "url": "{{baseUrl}}/api/tasks"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 422', () => pm.response.to.have.status(422));",
-                  "pm.test('status validation error', () => {",
-                  "  pm.expect(pm.response.json().errors.status).to.exist;",
-                  "});"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "PUT /api/tasks/{{taskId}}",
-          "request": {
-            "method": "PUT",
-            "header": [
-              { "key": "Accept", "value": "application/json" },
-              { "key": "Content-Type", "value": "application/json" }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Updated from Postman\",\n  \"status\": \"in_progress\"\n}"
-            },
-            "url": "{{baseUrl}}/api/tasks/{{taskId}}"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "DELETE /api/tasks/{{taskId}}",
-          "request": {
-            "method": "DELETE",
-            "header": [{ "key": "Accept", "value": "application/json" }],
-            "url": "{{baseUrl}}/api/tasks/{{taskId}}"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 204', () => pm.response.to.have.status(204));"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    }
-  ],
-  "variable": [
-    {
-      "key": "taskId",
-      "value": "1"
-    },
-    {
-      "key": "csrfToken",
-      "value": ""
-    }
-  ]
+	"info": {
+		"name": "Task API",
+		"description": "Laravel Sanctum SPA 認証（Cookie セッション + XSRF-TOKEN）で /api/tasks を検証するコレクション。\n\n**Collection Runner:** Health → Auth → Tasks API（Save cookies ON）\n\n**419:** GET /sanctum/csrf-cookie のあと POST /api/login。",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"const baseUrl = pm.environment.get('baseUrl');",
+					"const method = pm.request.method;",
+					"",
+					"if (!baseUrl) {",
+					"  return;",
+					"}",
+					"",
+					"// Sanctum の EnsureFrontendRequestsAreStateful は GET を含む全リクエストで",
+					"// Referer/Origin を stateful ドメインと照合するため、メソッドに関わらず設定する。",
+					"pm.request.headers.upsert({ key: 'Referer', value: baseUrl + '/login' });",
+					"pm.request.headers.upsert({ key: 'Origin', value: baseUrl });",
+					"pm.request.headers.upsert({ key: 'X-Requested-With', value: 'XMLHttpRequest' });",
+					"",
+					"if (method === 'GET' || method === 'HEAD') {",
+					"  return;",
+					"}",
+					"",
+					"// GET /sanctum/csrf-cookie のテストスクリプトが pm.cookies から読めなかった場合に備え、",
+					"// collectionVariables に保存した値をフォールバックとして使う",
+					"// (Newman は前リクエストのレスポンス Cookie を次リクエストの prerequest スクリプトから",
+					"//  参照できないことがあるため)。",
+					"const xsrf = pm.cookies.get('XSRF-TOKEN', baseUrl) || pm.collectionVariables.get('csrfCookie');",
+					"if (xsrf) {",
+					"  pm.request.headers.upsert({",
+					"    key: 'X-XSRF-TOKEN',",
+					"    value: decodeURIComponent(xsrf),",
+					"  });",
+					"}"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Newman は前リクエストのレスポンス Cookie を次リクエストの prerequest スクリプトから",
+					"// 参照できないことがあるため、レスポンスを受けた直後（pm.cookies が確実に読める）に",
+					"// 最新の XSRF-TOKEN を collectionVariables へ退避しておく。",
+					"// ログイン時はセッション再生成で CSRF トークンも変わるため、毎リクエスト後に更新する。",
+					"const baseUrl = pm.environment.get('baseUrl');",
+					"if (!baseUrl) {",
+					"  return;",
+					"}",
+					"",
+					"const xsrf = pm.cookies.get('XSRF-TOKEN', baseUrl);",
+					"if (xsrf) {",
+					"  pm.collectionVariables.set('csrfCookie', xsrf);",
+					"}"
+				]
+			}
+		}
+	],
+	"item": [
+		{
+			"name": "Health",
+			"item": [
+				{
+					"name": "GET /up",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": "{{baseUrl}}/up"
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('status 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "GET /sanctum/csrf-cookie",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": "{{baseUrl}}/sanctum/csrf-cookie"
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"const baseUrl = pm.environment.get('baseUrl');",
+									"",
+									"pm.test('csrf-cookie 204', () => pm.response.to.have.status(204));",
+									"pm.test('XSRF-TOKEN cookie set', () => {",
+									"  pm.expect(pm.cookies.get('XSRF-TOKEN', baseUrl), 'XSRF-TOKEN cookie').to.be.ok;",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "POST /api/login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+						},
+						"url": "{{baseUrl}}/api/login"
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('not CSRF rejected', () => {",
+									"  pm.expect(pm.response.code, '419=CSRF不一致').to.not.equal(419);",
+									"});",
+									"pm.test('login succeeds', () => pm.response.to.have.status(200));",
+									"pm.test('returns authenticated user', () => {",
+									"  pm.expect(pm.response.json().data.email).to.eql(pm.environment.get('email'));",
+									"});"
+								]
+							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"name": "Tasks API",
+			"item": [
+				{
+					"name": "GET /api/tasks",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": "{{baseUrl}}/api/tasks"
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('status 200', () => pm.response.to.have.status(200));",
+									"pm.test('has data array', () => {",
+									"  pm.expect(pm.response.json().data).to.be.an('array');",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "POST /api/tasks (valid)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Postman task\",\n  \"status\": \"todo\"\n}"
+						},
+						"url": "{{baseUrl}}/api/tasks"
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('status 201', () => pm.response.to.have.status(201));",
+									"const json = pm.response.json();",
+									"const id = json.data && json.data.id;",
+									"if (id) {",
+									"  pm.collectionVariables.set('taskId', String(id));",
+									"}"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "POST /api/tasks (invalid status → 422)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"t\",\n  \"status\": \"invalid\"\n}"
+						},
+						"url": "{{baseUrl}}/api/tasks"
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('status 422', () => pm.response.to.have.status(422));",
+									"pm.test('status validation error', () => {",
+									"  pm.expect(pm.response.json().errors.status).to.exist;",
+									"});"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "PUT /api/tasks/{{taskId}}",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Updated from Postman\",\n  \"status\": \"in_progress\"\n}"
+						},
+						"url": "{{baseUrl}}/api/tasks/{{taskId}}"
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('status 200', () => pm.response.to.have.status(200));"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "DELETE /api/tasks/{{taskId}}",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": "{{baseUrl}}/api/tasks/{{taskId}}"
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"type": "text/javascript",
+								"exec": [
+									"pm.test('status 204', () => pm.response.to.have.status(204));"
+								]
+							}
+						}
+					]
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "taskId",
+			"value": "1"
+		},
+		{
+			"key": "csrfCookie",
+			"value": ""
+		}
+	]
 }

@@ -1,12 +1,9 @@
 <?php
 
-use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
-use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\PrefersJsonResponses;
-use Illuminate\Session\Middleware\StartSession;
 
 return Application::configure(basePath: dirname(__DIR__))
   ->withRouting(
@@ -16,12 +13,13 @@ return Application::configure(basePath: dirname(__DIR__))
     health: '/up',
   )
   ->withMiddleware(function (Middleware $middleware): void {
+    $middleware->statefulApi();
     $middleware->api(prepend: [
-      EncryptCookies::class,
-      AddQueuedCookiesToResponse::class,
-      StartSession::class,
       PrefersJsonResponses::class,
     ]);
+    // 'login' という名前付きルートは存在しない（React SPA が /login を担当）ため、
+    // 未ログイン時のリダイレクト先はパス直書きにする。
+    $middleware->redirectGuestsTo('/login');
   })
   ->withExceptions(function (Exceptions $exceptions): void {
     //

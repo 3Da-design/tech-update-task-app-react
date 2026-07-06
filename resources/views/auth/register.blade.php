@@ -70,6 +70,6 @@
 
   <p class="mt-8 border-t border-gray-200 pt-6 text-center text-sm text-gray-600">
     すでにアカウントをお持ちの方は
-    <a href="{{ route('login') }}" class="app-link">ログイン</a>
+    <a href="/login" class="app-link">ログイン</a>
   </p>
 </x-guest-layout>

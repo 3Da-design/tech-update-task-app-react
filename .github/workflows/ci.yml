@@ -175,6 +175,8 @@ jobs:
           sed -i 's/^DB_DATABASE=.*/DB_DATABASE=laravel_test/' .env
           sed -i 's/^DB_USERNAME=.*/DB_USERNAME=postgres/' .env
           sed -i 's/^DB_PASSWORD=.*/DB_PASSWORD=secret/' .env
+          sed -i 's#^SANCTUM_STATEFUL_DOMAINS=.*#SANCTUM_STATEFUL_DOMAINS=127.0.0.1:8000,localhost:8000#' .env
+          sed -i 's#^FRONTEND_URLS=.*#FRONTEND_URLS=http://127.0.0.1:8000,http://localhost:8000#' .env
           php artisan migrate --force --seed
 
       - uses: actions/setup-node@v4

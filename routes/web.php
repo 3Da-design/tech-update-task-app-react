@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,7 @@ Route::get('/dashboard', fn () => redirect('/'))
 // Blade の /login とパスが衝突しないよう /api 配下に置く。
 Route::post('/api/login', [AuthenticatedSessionController::class, 'store']);
 Route::post('/api/logout', [AuthenticatedSessionController::class, 'destroy'])->middleware('auth');
+Route::post('/api/register', [RegisteredUserController::class, 'store'])->middleware('guest');
 Route::middleware('auth')->get('/api/user', fn (Request $request) => $request->user());
 
 Route::middleware('auth')->group(function () {

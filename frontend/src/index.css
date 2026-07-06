@@ -143,6 +143,18 @@ body {
   margin: 0.25rem 0 0;
 }
 
+.app-guest-switch {
+  margin: 1.25rem 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-align: center;
+}
+
+.app-guest-switch a {
+  color: #1f2937;
+  font-weight: 500;
+}
+
 .app-loading {
   color: #6b7280;
 }

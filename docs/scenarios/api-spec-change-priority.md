@@ -19,7 +19,7 @@
 
 ## 0. この実験について
 
-タスク REST API と Web UI に新属性 `priority`（`low` / `medium` / `high`、デフォルト `medium`）を追加する実験です。既存クライアントが `priority` を送らなくても動作する**非破壊的な属性追加**であり、legacy 構成（Controller 内に正規化・一覧クエリあり）と比べて修正が何ファイルに分散するかを測ります。**完全版**では CRUD に加え、一覧の**表示・フィルタ（`?priority=`）・並び替え（`?priority_sort=asc|desc`）**まで legacy と parity を取ります。improved では属性の正規化は `TaskService::normalizeTaskPayload`、一覧クエリは `IndexTaskRequest` → `normalizeListFilters` → `TaskRepository::getFiltered` に集約され、legacy との差は主に **Controller 2 ファイル（一覧クエリ + normalizeTaskPayload）** として `git_app.files_changed` に現れます。
+タスク REST API と React SPA（`frontend/`）に新属性 `priority`（`low` / `medium` / `high`、デフォルト `medium`）を追加する実験です。既存クライアントが `priority` を送らなくても動作する**非破壊的な属性追加**であり、S0（Blade）と比べて修正がフロント／バックエンドにどう分散するかを `git_frontend` / `git_backend` で測ります。**完全版**では CRUD に加え、一覧の**表示・フィルタ（`?priority=`）・並び替え（`?priority_sort=asc|desc`）**まで S0 と parity を取ります。improved では属性の正規化は `TaskService::normalizeTaskPayload`、一覧クエリは `IndexTaskRequest` → `normalizeListFilters` → `TaskRepository::getFiltered` に集約されます。S2 のフロント修正は **`frontend/src/types.ts` の型追加を起点**として `StatusLabel` / `TaskForm` / `TaskFilterBar` / `TaskTable` / `api/tasks.ts` / `pages/TasksPage.tsx` に波及する想定で、TypeScript が型不整合を早期検出する点（H3）の観察材料になります。
 
 ---
 
@@ -27,7 +27,7 @@
 
 | 項目 | 値 |
 | --- | --- |
-| リポジトリ | improved |
+| リポジトリ | tech-update-task-app-react（S2 / improved） |
 | 実験の内容 | API 仕様変更 — priority 属性追加（CRUD + 一覧列 + フィルタ + 並び替え） |
 | ブランチ名 | `exp/api-spec-change-priority` |
 | 参照MD | `docs/scenarios/api-spec-change-priority.md` |
@@ -58,13 +58,16 @@
 | 9 | `app/Http/Requests/IndexTaskRequest.php` | `prepareForValidation` / `rules()` | 2 | `priority` / `priority_sort` | 一覧入力検証 |
 | 10 | `app/Repositories/TaskRepository.php` | `getFiltered()` | 2 | WHERE + ORDER BY | クエリ実行 |
 | 11 | `app/Repositories/Contracts/TaskRepositoryInterface.php` | PHPDoc | 2 | filters 型 | Interface 整合 |
-| 12 | `resources/views/tasks/_form.blade.php` | status と due_date の間 | 2 | select 追加 | 作成・編集 |
-| 13 | `resources/views/tasks/index.blade.php` | フィルタ + テーブル | 2 | 列・フィルタ・ソート UI | Web 一覧完全対応 |
-| 14 | `app/Http/Controllers/Web/TaskController.php` | `update()` 行 50–52 | 2 | redirect query | 更新後フィルタ状態維持 |
-| 15 | `tests/Feature/TaskApiTest.php` | 各メソッド | 4 | CRUD 期待値 | API 契約 |
-| 16 | `tests/Feature/TaskWebTest.php` | index / store / update | 4 | 表示・DB | Web CRUD |
-| 17 | `tests/Feature/TaskListFilterTest.php` | seed + 新規 4 テスト | 4 | フィルタ/ソート | 一覧クエリ |
-| 18 | `postman/Task-API.postman_collection.json` | POST / PUT tests | 4 | アサーション | Newman |
+| 12 | `frontend/src/types.ts` | `TaskPriority` 型 / `Task` / `TaskFormInput` / `TaskListQuery` | 2 | 型に priority 追加（起点） | TS 型定義（H3 の起点） |
+| 13 | `frontend/src/components/StatusLabel.tsx` | `PRIORITY_OPTIONS` / `priorityLabel` 追加 | 2 | 選択肢・ラベル定義 | UI 共有の許可値 |
+| 14 | `frontend/src/components/TaskForm.tsx` | `EMPTY_FORM` / `toFormInput` / select 追加 | 2 | 作成・編集フォーム | フォーム入力 |
+| 15 | `frontend/src/components/TaskFilterBar.tsx` | priority フィルタ + priority_sort select | 2 | フィルタ・並び替え UI | 一覧クエリ送出 |
+| 16 | `frontend/src/components/TaskTable.tsx` | thead / tbody に優先度列 | 2 | 一覧表示 | 列追加 |
+| 17 | `frontend/src/api/tasks.ts` | `listTasks` params / `TaskPayload` | 2 | 送受信に priority | API 契約（フロント） |
+| 18 | `frontend/src/pages/TasksPage.tsx` | `handleSubmitForm` payload | 2 | payload に priority | 作成/更新の送信 |
+| 19 | `tests/Feature/TaskApiTest.php` | 各メソッド | 4 | CRUD 期待値 | API 契約 |
+| 20 | `tests/Feature/TaskListFilterTest.php` | seed + 新規テスト（API） | 4 | フィルタ/ソート | 一覧クエリ（S2 は API のみ） |
+| 21 | `postman/Task-API.postman_collection.json` | POST / PUT tests | 4 | アサーション | Newman |
 
 ---
 
@@ -484,119 +487,282 @@ $data = array_intersect_key($data, array_flip($allowed));
    */
 ```
 
-**Step 2-14.** `resources/views/tasks/_form.blade.php` — status の直後
+**Step 2-14.** `frontend/src/types.ts` — priority の型を追加する（**フロント修正の起点**）。
 
-- **解説:** 作成・編集フォームから priority を送る。
-- **追加ブロック（status と due_date の間に挿入）:**
-
-```php
-    <div class="app-form-field">
-        <x-input-label for="priority" value="優先度" />
-        <x-select-input id="priority" name="priority" class="block w-full">
-            @foreach (config('task.priority_values') as $priority)
-                <option value="{{ $priority }}" @selected(old('priority', $task?->priority ?? 'medium') === $priority)>
-                    {{ $priority }}
-                </option>
-            @endforeach
-        </x-select-input>
-        <x-input-error :messages="$errors->get('priority')" class="mt-2" />
-    </div>
-```
-
-**Step 2-15.** `resources/views/tasks/index.blade.php`
-
-- **解説:** フィルタ・並び替え UI とテーブル列を追加。`status` フィルタの直後に priority フィルタと priority 並び替えを挿入し、テーブルに優先度列を追加する。
-- **追加（status フィルタ `<div>` の直後、`期限並び替え` の前）:**
-
-```php
-                <div class="app-form-field mb-0 min-w-[8rem] flex-1">
-                    <x-input-label for="filter-priority" value="優先度" />
-                    <x-select-input id="filter-priority" name="priority" class="block w-full">
-                        <option value="">すべて</option>
-                        @foreach (config('task.priority_values') as $priority)
-                            <option value="{{ $priority }}" @selected(old('priority', request('priority')) === $priority)>
-                                {{ $priority }}
-                            </option>
-                        @endforeach
-                    </x-select-input>
-                    <x-input-error :messages="$errors->get('priority')" class="mt-1" />
-                </div>
-
-                <div class="app-form-field mb-0 min-w-[10rem] flex-1">
-                    <x-input-label value="優先度並び替え" />
-                    <div class="app-radio-group">
-                        <label class="app-radio-label">
-                            <input
-                                type="radio"
-                                name="priority_sort"
-                                value="asc"
-                                class="app-radio"
-                                @checked(old('priority_sort', request('priority_sort', 'asc')) === 'asc')
-                            >
-                            昇順
-                        </label>
-                        <label class="app-radio-label">
-                            <input
-                                type="radio"
-                                name="priority_sort"
-                                value="desc"
-                                class="app-radio"
-                                @checked(old('priority_sort', request('priority_sort')) === 'desc')
-                            >
-                            降順
-                        </label>
-                    </div>
-                    <x-input-error :messages="$errors->get('priority_sort')" class="mt-1" />
-                </div>
-```
-
-- **thead 変更後:**
-
-```php
-                    <tr>
-                        <th>タイトル</th>
-                        <th>ステータス</th>
-                        <th>優先度</th>
-                        <th>期限</th>
-                        <th class="text-right">操作</th>
-                    </tr>
-```
-
-- **tbody 行 変更後:**
-
-```php
-                            <td class="font-medium text-gray-900">{{ $task->title }}</td>
-                            <td>{{ $task->status }}</td>
-                            <td>{{ $task->priority }}</td>
-                            <td>{{ $task->due_date?->format('Y-m-d') ?? '-' }}</td>
-```
-
-- **empty 行:**
-
-```php
-                            <td colspan="5" class="py-8 text-center text-gray-500">タスクがありません</td>
-```
-
-**Step 2-16.** `app/Http/Controllers/Web/TaskController.php` — `update()` 行 50–52
-
-- **解説:** タスク更新後も一覧フィルタ状態（priority 含む）を維持する。index / store / API index は変更不要。
+- **解説:** `TaskPriority` を定義し、`Task` / `TaskFormInput` / `TaskListQuery` に priority を通す。ここを直すと TypeScript が未対応の各コンポーネントで型エラーを出し、修正箇所を機械的に洗い出せる（H3 の観察材料）。
 - **変更前:**
 
-```php
-    return redirect()
-      ->route('tasks.index', $request->only(['title', 'status', 'due_date_sort']))
-      ->with('status', 'タスクを更新しました。');
+```ts
+export type TaskStatus = 'todo' | 'in_progress' | 'done';
+
+export interface Task {
+  id: number;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  due_date: string | null;
+}
+
+export interface TaskFormInput {
+  title: string;
+  description: string;
+  status: TaskStatus;
+  due_date: string;
+}
+
+export interface TaskListQuery {
+  title?: string;
+  status?: TaskStatus | '';
+  due_date_sort?: 'asc' | 'desc' | '';
+}
 ```
 
 - **変更後:**
 
-```php
-    return redirect()
-      ->route('tasks.index', $request->only(['title', 'status', 'priority', 'priority_sort', 'due_date_sort']))
-      ->with('status', 'タスクを更新しました。');
+```ts
+export type TaskStatus = 'todo' | 'in_progress' | 'done';
+export type TaskPriority = 'low' | 'medium' | 'high';
+
+export interface Task {
+  id: number;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date: string | null;
+}
+
+export interface TaskFormInput {
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  due_date: string;
+}
+
+export interface TaskListQuery {
+  title?: string;
+  status?: TaskStatus | '';
+  priority?: TaskPriority | '';
+  priority_sort?: 'asc' | 'desc' | '';
+  due_date_sort?: 'asc' | 'desc' | '';
+}
 ```
 
-**Step 2-17.** フロントエンド資産をビルドする。
+**Step 2-15.** `frontend/src/components/StatusLabel.tsx` — priority の選択肢・ラベルを追加する。
+
+- **解説:** `STATUS_OPTIONS` と対になる `PRIORITY_OPTIONS` / `priorityLabel` を定義し、フォーム・フィルタ・一覧表示で共有する。
+- **import 変更後:**
+
+```ts
+import type { TaskStatus, TaskPriority } from '../types';
+```
+
+- **ファイル末尾に追加:**
+
+```ts
+export const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
+  { value: 'low', label: '低' },
+  { value: 'medium', label: '中' },
+  { value: 'high', label: '高' },
+];
+
+export function priorityLabel(priority: TaskPriority): string {
+  return PRIORITY_OPTIONS.find((option) => option.value === priority)?.label ?? priority;
+}
+```
+
+**Step 2-16.** `frontend/src/components/TaskForm.tsx` — 作成・編集フォームに priority を追加する。
+
+- **解説:** 既定値 `medium`、編集時は task の値を反映し、status select と同形の priority select を追加する。
+- **import 変更後:**
+
+```ts
+import { STATUS_OPTIONS, PRIORITY_OPTIONS } from './StatusLabel';
+```
+
+- **`EMPTY_FORM` 変更後:**
+
+```ts
+const EMPTY_FORM: TaskFormInput = {
+  title: '',
+  description: '',
+  status: 'todo',
+  priority: 'medium',
+  due_date: '',
+};
+```
+
+- **`toFormInput` の return 変更後:**
+
+```ts
+  return {
+    title: task.title,
+    description: task.description ?? '',
+    status: task.status,
+    priority: task.priority,
+    due_date: task.due_date ?? '',
+  };
+```
+
+- **status の `app-form-field`（74–89 行目）の直後に priority フィールドを挿入:**
+
+```tsx
+      <div className="app-form-field">
+        <label htmlFor="priority">優先度</label>
+        <select
+          id="priority"
+          className="app-input"
+          value={form.priority}
+          onChange={(event) => setForm({ ...form, priority: event.target.value as TaskFormInput['priority'] })}
+        >
+          {PRIORITY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {errors.priority && <p className="app-error">{errors.priority.join(' ')}</p>}
+      </div>
+```
+
+**Step 2-17.** `frontend/src/components/TaskFilterBar.tsx` — priority フィルタと priority_sort を追加する。
+
+- **解説:** status フィルタと同形の priority フィルタ、期限日ソートと同形の priority ソートを追加し、`onApply` に含める。
+- **import 変更後:**
+
+```ts
+import type { TaskListQuery, TaskStatus, TaskPriority } from '../types';
+import { STATUS_OPTIONS, PRIORITY_OPTIONS } from './StatusLabel';
+```
+
+- **型エイリアスと state 追加後（`type StatusFilter` の直後、および `useState` 群）:**
+
+```ts
+type StatusFilter = TaskStatus | '';
+type PriorityFilter = TaskPriority | '';
+type SortFilter = 'asc' | 'desc' | '';
+```
+
+```ts
+  const [status, setStatus] = useState<StatusFilter>(initialQuery.status ?? '');
+  const [priority, setPriority] = useState<PriorityFilter>(initialQuery.priority ?? '');
+  const [prioritySort, setPrioritySort] = useState<SortFilter>(initialQuery.priority_sort ?? '');
+  const [dueDateSort, setDueDateSort] = useState<SortFilter>(initialQuery.due_date_sort ?? '');
+```
+
+- **`handleSubmit` の `onApply` 変更後:**
+
+```ts
+    onApply({ title, status, priority, priority_sort: prioritySort, due_date_sort: dueDateSort });
+```
+
+- **status フィルタ `app-form-field`（38–53 行目）の直後に priority フィルタと priority ソートを挿入:**
+
+```tsx
+      <div className="app-form-field">
+        <label htmlFor="filter-priority">優先度</label>
+        <select
+          id="filter-priority"
+          className="app-input"
+          value={priority}
+          onChange={(event) => setPriority(event.target.value as PriorityFilter)}
+        >
+          <option value="">すべて</option>
+          {PRIORITY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="app-form-field">
+        <label htmlFor="filter-priority-sort">優先度ソート</label>
+        <select
+          id="filter-priority-sort"
+          className="app-input"
+          value={prioritySort}
+          onChange={(event) => setPrioritySort(event.target.value as SortFilter)}
+        >
+          <option value="">指定なし</option>
+          <option value="asc">昇順</option>
+          <option value="desc">降順</option>
+        </select>
+      </div>
+```
+
+**Step 2-18.** `frontend/src/components/TaskTable.tsx` — 一覧に優先度列を追加する。
+
+- **解説:** ステータス列の直後に優先度列（`priorityLabel` 表示）を追加する。
+- **import 変更後:**
+
+```ts
+import { statusLabel, priorityLabel } from './StatusLabel';
+```
+
+- **thead 変更後（ステータスの直後に優先度）:**
+
+```tsx
+          <th>タイトル</th>
+          <th>ステータス</th>
+          <th>優先度</th>
+          <th>期限日</th>
+          <th>説明</th>
+          <th aria-label="操作" />
+```
+
+- **tbody 行 変更後（ステータスセルの直後に優先度セル）:**
+
+```tsx
+            <td>{task.title}</td>
+            <td>{statusLabel(task.status)}</td>
+            <td>{priorityLabel(task.priority)}</td>
+            <td>{task.due_date ?? '-'}</td>
+            <td>{task.description ?? '-'}</td>
+```
+
+**Step 2-19.** `frontend/src/api/tasks.ts` — 送受信に priority を通す。
+
+- **解説:** 一覧クエリに `priority` / `priority_sort` を積み、`TaskPayload` に priority を追加する。
+- **`listTasks` の params 追加後:**
+
+```ts
+  if (query.title) params.title = query.title;
+  if (query.status) params.status = query.status;
+  if (query.priority) params.priority = query.priority;
+  if (query.priority_sort) params.priority_sort = query.priority_sort;
+  if (query.due_date_sort) params.due_date_sort = query.due_date_sort;
+```
+
+- **`TaskPayload` 変更後:**
+
+```ts
+export interface TaskPayload {
+  title: string;
+  description: string | null;
+  status: Task['status'];
+  priority: Task['priority'];
+  due_date: string | null;
+}
+```
+
+**Step 2-20.** `frontend/src/pages/TasksPage.tsx` — 作成/更新 payload に priority を含める。
+
+- **解説:** `handleSubmitForm` の payload 構築に priority を追加する。
+- **変更後:**
+
+```ts
+    const payload = {
+      title: input.title,
+      description: input.description === '' ? null : input.description,
+      status: input.status,
+      priority: input.priority,
+      due_date: input.due_date === '' ? null : input.due_date,
+    };
+```
+
+**Step 2-21.** フロントエンド資産をビルドする。
 
 ```bash
 composer npm:docker-build
@@ -673,69 +839,9 @@ composer experiment:metrics -- --phase after_update --diff-ref experiment-baseli
   }
 ```
 
-**Step 4-2.** `tests/Feature/TaskWebTest.php`
+**Step 4-2.** `tests/Feature/TaskListFilterTest.php`
 
-- **index テスト変更後:**
-
-```php
-    Task::query()->create([
-      'user_id' => $this->user->id,
-      'title' => 'Web task',
-      'description' => null,
-      'status' => 'todo',
-      'priority' => 'high',
-      'due_date' => null,
-    ]);
-
-    $response = $this->actingAs($this->user)->get('/tasks');
-
-    $response->assertOk();
-    $response->assertSee('Web task', false);
-    $response->assertSee('high', false);
-```
-
-- **store テスト変更後:**
-
-```php
-    $response = $this->actingAs($this->user)->post('/tasks', [
-      'title' => 'New web task',
-      'status' => 'todo',
-      'priority' => 'low',
-    ]);
-
-    $response->assertRedirect(route('tasks.index'));
-    $this->assertDatabaseHas('tasks', [
-      'user_id' => $this->user->id,
-      'title' => 'New web task',
-      'priority' => 'low',
-    ]);
-```
-
-- **update テスト変更後:**
-
-```php
-    $response = $this->actingAs($this->user)->put("/tasks/{$task->id}", [
-      'title' => 'After',
-      'status' => 'in_progress',
-      'priority' => 'high',
-    ]);
-
-    $response->assertRedirect(route('tasks.index', [
-      'title' => 'After',
-      'status' => 'in_progress',
-      'priority' => 'high',
-    ]));
-    $this->assertDatabaseHas('tasks', [
-      'id' => $task->id,
-      'title' => 'After',
-      'status' => 'in_progress',
-      'priority' => 'high',
-    ]);
-```
-
-**Step 4-3.** `tests/Feature/TaskListFilterTest.php`
-
-- **解説:** 既存 seed は全件 `priority => 'medium'` にし既存 due_date テストを維持。priority 専用 seed でフィルタ/ソートを検証。
+- **解説:** 既存 seed は全件 `priority => 'medium'` にし既存 due_date テストを維持。priority 専用 seed でフィルタ/ソートを検証。S2 は一覧フィルタが API のみのため、追加テストは API（`getJson`）のみとする（Web ルート `/tasks` は存在しない）。
 - **`seedTasks()` 各 create に追加:**
 
 ```php
@@ -776,59 +882,9 @@ composer experiment:metrics -- --phase after_update --diff-ref experiment-baseli
   }
 ```
 
-- **新規テスト 4 本追加（`test_api_index_sorts_due_date_desc` の後）:**
+- **新規テスト 3 本追加（API、`test_api_index_sorts_due_date_desc` の後）:**
 
 ```php
-  public function test_web_index_filters_by_priority(): void
-  {
-    $this->seedTasksWithDistinctPriorities();
-
-    $response = $this->actingAs($this->user)->get('/tasks?priority=high');
-
-    $response->assertOk();
-    $response->assertSee('Bar task', false);
-    $response->assertDontSee('Foo task', false);
-    $response->assertDontSee('Baz task', false);
-  }
-
-  public function test_web_index_sorts_priority_asc(): void
-  {
-    $this->seedTasksWithDistinctPriorities();
-
-    $response = $this->actingAs($this->user)->get('/tasks?priority_sort=asc&due_date_sort=asc');
-
-    $response->assertOk();
-    $content = $response->getContent();
-    $this->assertNotFalse($content);
-    $fooPos = strpos($content, 'Foo task');
-    $bazPos = strpos($content, 'Baz task');
-    $barPos = strpos($content, 'Bar task');
-    $this->assertNotFalse($fooPos);
-    $this->assertNotFalse($bazPos);
-    $this->assertNotFalse($barPos);
-    $this->assertLessThan($bazPos, $fooPos);
-    $this->assertLessThan($barPos, $bazPos);
-  }
-
-  public function test_web_index_sorts_priority_desc(): void
-  {
-    $this->seedTasksWithDistinctPriorities();
-
-    $response = $this->actingAs($this->user)->get('/tasks?priority_sort=desc&due_date_sort=asc');
-
-    $response->assertOk();
-    $content = $response->getContent();
-    $this->assertNotFalse($content);
-    $fooPos = strpos($content, 'Foo task');
-    $bazPos = strpos($content, 'Baz task');
-    $barPos = strpos($content, 'Bar task');
-    $this->assertNotFalse($fooPos);
-    $this->assertNotFalse($bazPos);
-    $this->assertNotFalse($barPos);
-    $this->assertLessThan($bazPos, $barPos);
-    $this->assertLessThan($fooPos, $bazPos);
-  }
-
   public function test_api_index_filters_by_priority(): void
   {
     $this->seedTasksWithDistinctPriorities();
@@ -863,7 +919,7 @@ composer experiment:metrics -- --phase after_update --diff-ref experiment-baseli
   }
 ```
 
-**Step 4-4.** `postman/Task-API.postman_collection.json` 
+**Step 4-3.** `postman/Task-API.postman_collection.json` 
 
 | **変更内容** | **リクエスト名** | **行** |
 | --- | --- | --- |
@@ -899,7 +955,7 @@ composer experiment:metrics -- --phase after_update --diff-ref experiment-baseli
 "});"
 ```
 
-**Step 4-5.** CI 相当の品質チェックを実行し、すべて緑にする。
+**Step 4-4.** CI 相当の品質チェックを実行し、すべて緑にする。
 
 ```bash
 ./scripts/check-quality.sh
@@ -980,10 +1036,11 @@ git push origin exp/api-spec-change-priority
 
 - [ ]  GitHub Actions 4 ジョブすべて成功
 - [ ]  `experiment/metrics/runs/<run_id>/` に 3 フェーズ JSON がある
-- [ ]  API / DB / Web フォームで `priority` が動作する
-- [ ]  Web 一覧に優先度列が表示される
-- [ ]  `?priority=high` で Web / API 一覧がフィルタされる
-- [ ]  `?priority_sort=asc|desc` で Web / API 一覧が並び替えられる
+- [ ]  API / DB / React フォーム（`TaskForm`）で `priority` が動作する
+- [ ]  一覧（`TaskTable`）に優先度列が表示される
+- [ ]  `?priority=high` で API 一覧がフィルタされ、`TaskFilterBar` が反映する
+- [ ]  `?priority_sort=asc|desc` で API 一覧が並び替えられ、`TaskFilterBar` が反映する
+- [ ]  `npm run build`（`composer npm:docker-build`）が型エラーなく通る
 - [ ]  `experiment/results/` に結果がコピーされている
 
 ---
@@ -992,11 +1049,10 @@ git push origin exp/api-spec-change-priority
 
 | ファイル | 理由 |
 | --- | --- |
-| `app/Http/Controllers/API/TaskController.php` | index は `IndexTaskRequest` → `TaskService` 経由。一覧クエリロジック不要 |
-| `app/Http/Controllers/Web/TaskController.php` の `index()` | 同上。`update()` の redirect query のみ 1 行変更 |
-| `app/Http/Controllers/API/Web` の `normalizeTaskPayload` | improved では Service 層が担当（legacy は Controller も修正） |
+| `app/Http/Controllers/API/TaskController.php` | index は `IndexTaskRequest` → `TaskService` 経由。一覧クエリロジック不要。S2 は API 一本化のため Web Controller は存在しない |
+| `normalizeTaskPayload`（Controller 内） | improved では Service 層が担当（S0 Blade も同様。属性追加でも Controller は不変） |
 
-**legacy との期待差:** legacy は **Web/API Controller 2 ファイル**に `normalizeTaskPayload` + 一覧クエリが重複。improved は **Repository + Service + IndexTaskRequest** に集約。
+**S0（Blade）との期待差:** バックエンド修正は 3 スタック共通（Repository + Service + IndexTaskRequest ほか）。フロント修正は S0 が Blade 2 ファイル、S2 が React 7 ファイル（`types.ts` 起点 + 6 コンポーネント/モジュール）に現れ、`git_frontend` / `git_backend` で比較する。TypeScript の型追加が波及検出の起点になる（H3）。
 
 ## 関連
 

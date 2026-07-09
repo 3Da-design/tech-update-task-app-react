@@ -19,13 +19,13 @@
 
 ## 0. この実験について
 
-本実験は、タスクの `status` を string（`todo` / `in_progress` / `done`）から integer（`0` / `1` / `2`）へ変更する破壊的 API 仕様変更を適用し、その波及範囲を計測する。既存フィールドの型変更は、属性追加（priority）や DB スキーマ変更（タイトル検索）と対比し、技術更新時の修正コスト・失敗パターンの違いを評価するのに適している。improved 構成では Controller は HTTP 受け渡しのみとし、正規化は `TaskService`、永続化・一覧クエリは `TaskRepository`、HTTP バリデーションは FormRequest×3、表示ラベルは `config/task.php` と View に修正が集まる想定である。`TaskResource` は Model の integer cast により JSON も自動的に int になるため触らない。
+本実験は、タスクの `status` を string（`todo` / `in_progress` / `done`）から integer（`0` / `1` / `2`）へ変更する破壊的 API 仕様変更を適用し、その波及範囲を計測する。既存フィールドの型変更は、属性追加（priority）や DB スキーマ変更（タイトル検索）と対比し、技術更新時の修正コスト・失敗パターンの違いを評価するのに適している。improved 構成では Controller は HTTP 受け渡しのみとし、正規化は `TaskService`、永続化・一覧クエリは `TaskRepository`、HTTP バリデーションは FormRequest×3、表示ラベルは `config/task.php`（バックエンド）と React の `StatusLabel.tsx`（フロント）に修正が集まる想定である。S2 のフロントは **`frontend/src/types.ts` の `TaskStatus` 型を `0|1|2` に変える**のが起点で、TypeScript が string→int の不整合（select の Number 変換漏れ等）を早期検出する点（H3）を観察できる。`TaskResource` は Model の integer cast により JSON も自動的に int になるため触らない。
 
 ## 1. 概要
 
 | 項目 | 値 |
 | --- | --- |
-| リポジトリ | improved |
+| リポジトリ | tech-update-task-app-react（S2 / improved） |
 | 実験の内容 | `status` を string から integer（0/1/2）へ変更 |
 | ブランチ名 | exp/api-spec-change-status-int |
 | 参照MD | docs/scenarios/api-spec-change-status-int.md |
@@ -49,12 +49,14 @@
 | 7 | `app/Services/TaskService.php` | `normalizeListFilters()` 74–92行目、`normalizeTaskPayload()` 126行前 | 2 | int 正規化ロジック | Controller を触らずユースケース層で型を揃えるため |
 | 8 | `app/Repositories/TaskRepository.php` | `getFiltered()` 20–23行目 | 2 | `is_string` → `is_int` | 一覧クエリの status 比較を int に合わせるため |
 | 9 | `app/Repositories/Contracts/TaskRepositoryInterface.php` | PHPDoc 11行目 | 2 | `status?: string` → `status?: int` | フィルタ型の契約を実装と一致させるため |
-| 10 | `resources/views/tasks/_form.blade.php` | 34–37行目 | 2 | option value=int、表示=labels | 作成・編集フォームの送信値を int にするため |
-| 11 | `resources/views/tasks/index.blade.php` | 31–34行目、85行目 | 2 | フィルタ option + 一覧表示を labels | 一覧フィルタ送信と人間可読表示を int 仕様に合わせるため |
-| 12 | `tests/Feature/TaskApiTest.php` | 全 `status` 参照（39, 54, 67, 78, 93, 99, 111, 125行目ほか） | 4 | 期待値を int に | API テストを新仕様に合わせるため |
-| 13 | `tests/Feature/TaskWebTest.php` | 全 `status` 参照（29, 50, 63, 76, 82, 87, 92, 102行目ほか） | 4 | 期待値を int に | Web テストを新仕様に合わせるため |
-| 14 | `tests/Feature/TaskListFilterTest.php` | 38, 98行目のクエリ、127–151行目の seed | 4 | `?status=2` 等に変更 | status フィルタテストを int クエリに合わせるため |
-| 15 | `postman/Task-API.postman_collection.json` | 195, 255行目の request body | 4 | `"status": 0` / `1` に変更 | Newman が新 API 仕様で通るようにするため |
+| 10 | `frontend/src/types.ts` | `TaskStatus` 型 1行目 | 2 | `'todo'\|...` → `0\|1\|2`（起点） | TS 型定義（H3 の起点） |
+| 11 | `frontend/src/components/StatusLabel.tsx` | `STATUS_OPTIONS` value 3–7行目 | 2 | value を int に | 表示ラベルの単一ソース（フロント） |
+| 12 | `frontend/src/components/TaskForm.tsx` | `EMPTY_FORM` / status select onChange | 2 | int 既定値・`Number()` 変換 | フォーム送信値を int に |
+| 13 | `frontend/src/components/TaskFilterBar.tsx` | status state / onChange | 2 | 空文字以外は `Number()` | フィルタ送信値を int に |
+| 14 | `frontend/src/api/tasks.ts` | `listTasks` status param 7行目 | 2 | `status=0` を落とさない送出 | 一覧クエリ（int 対応） |
+| 15 | `tests/Feature/TaskApiTest.php` | 全 `status` 参照（39, 54, 67, 78, 93, 99, 111, 125行目ほか） | 4 | 期待値を int に | API テストを新仕様に合わせるため |
+| 16 | `tests/Feature/TaskListFilterTest.php` | 98行目のクエリ、127–151行目の seed | 4 | `?status=2` 等に変更 | status フィルタテスト（S2 は API のみ） |
+| 17 | `postman/Task-API.postman_collection.json` | 195, 255行目の request body | 4 | `"status": 0` / `1` に変更 | Newman が新 API 仕様で通るようにするため |
 
 ## 4. 実施手順
 
@@ -379,65 +381,100 @@ docker compose exec app php artisan migrate
    * @param  array{title?: string, status?: int, due_date_sort?: string}  $filters
 ```
 
-**Step 2-13.** フォームの status セレクトを int value + ラベル表示に変更する。
+**Step 2-13.** `frontend/src/types.ts` の `TaskStatus` 型を int union に変更する（**フロント修正の起点**）。
 
-- **ファイル:** `resources/views/tasks/_form.blade.php`
-- **場所:** 34–37行目
-- **解説:** フォーム送信値を int にしつつ、ユーザーには文字ラベルを表示する。
+- **ファイル:** `frontend/src/types.ts`
+- **場所:** 1行目
+- **解説:** ここを直すと TypeScript が `STATUS_OPTIONS` の value・select の onChange・API params など未対応箇所で型エラーを出し、修正箇所を機械的に洗い出せる（H3 の観察材料）。`Task` / `TaskFormInput` / `TaskListQuery` は `TaskStatus` を参照するため自動追従する。
 - **変更前:**
 
-```php
-            @foreach (config('task.status_values') as $status)
-                <option value="{{ $status }}" @selected(old('status', $task?->status ?? '') === $status)>
-                    {{ $status }}
-                </option>
-            @endforeach
+```ts
+export type TaskStatus = 'todo' | 'in_progress' | 'done';
 ```
 
 - **変更後:**
 
-```php
-            @foreach (config('task.status_values') as $status)
-                <option value="{{ $status }}" @selected((int) old('status', $task?->status ?? '') === $status)>
-                    {{ config('task.status_labels')[$status] }}
-                </option>
-            @endforeach
+```ts
+export type TaskStatus = 0 | 1 | 2;
 ```
 
-**Step 2-14.** 一覧のフィルタ・表示を int value + ラベル表示に変更する。
+**Step 2-14.** `frontend/src/components/StatusLabel.tsx` の選択肢 value を int にする。
 
-- **ファイル:** `resources/views/tasks/index.blade.php`
-- **場所:** 31–34行目（フィルタ）、85行目（一覧表示）
-- **解説:** 一覧フィルタの送信値を int にし、テーブルにはラベルを表示する。9行目の `session('status')` はフラッシュメッセージ用のため変更しない。
+- **ファイル:** `frontend/src/components/StatusLabel.tsx`
+- **場所:** `STATUS_OPTIONS` 3–7行目
+- **解説:** 選択肢の value を int に、表示ラベル（`未着手` 等）はそのまま維持する。`statusLabel()` は value 一致で引くため変更不要。
 - **変更前:**
 
-```php
-                        @foreach (config('task.status_values') as $status)
-                            <option value="{{ $status }}" @selected(old('status', request('status')) === $status)>
-                                {{ $status }}
-                            </option>
-                        @endforeach
-```
-
-```php
-                            <td>{{ $task->status }}</td>
+```ts
+export const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
+  { value: 'todo', label: '未着手' },
+  { value: 'in_progress', label: '進行中' },
+  { value: 'done', label: '完了' },
+];
 ```
 
 - **変更後:**
 
-```php
-                        @foreach (config('task.status_values') as $status)
-                            <option value="{{ $status }}" @selected((int) old('status', request('status', '')) === $status)>
-                                {{ config('task.status_labels')[$status] }}
-                            </option>
-                        @endforeach
+```ts
+export const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
+  { value: 0, label: '未着手' },
+  { value: 1, label: '進行中' },
+  { value: 2, label: '完了' },
+];
 ```
 
-```php
-                            <td>{{ config('task.status_labels')[$task->status] ?? $task->status }}</td>
+**Step 2-15.** `frontend/src/components/TaskForm.tsx` の既定値と onChange を int 化する。
+
+- **ファイル:** `frontend/src/components/TaskForm.tsx`
+- **解説:** `EMPTY_FORM` の status 既定値を int にし、select の onChange で `Number()` 変換する（`event.target.value` は文字列のため、これを怠ると型エラーになる — H3 の検出点）。
+- **`EMPTY_FORM` 変更後:**
+
+```ts
+const EMPTY_FORM: TaskFormInput = {
+  title: '',
+  description: '',
+  status: 0,
+  due_date: '',
+};
 ```
 
-**Step 2-15.** フロント資産を Docker 経由でビルドする。
+- **status select の onChange 変更後:**
+
+```tsx
+          onChange={(event) => setForm({ ...form, status: Number(event.target.value) as TaskFormInput['status'] })}
+```
+
+**Step 2-16.** `frontend/src/components/TaskFilterBar.tsx` の status フィルタを int 化する。
+
+- **ファイル:** `frontend/src/components/TaskFilterBar.tsx`
+- **解説:** フィルタ state は「未選択（空文字）」を保持しつつ、値選択時は int に変換する。`StatusFilter` 型は `TaskStatus | ''` のため型は自動追従し、onChange の変換のみ直す。
+- **status select の onChange 変更後:**
+
+```tsx
+          onChange={(event) => {
+            const value = event.target.value;
+            setStatus(value === '' ? '' : (Number(value) as TaskStatus));
+          }}
+```
+
+**Step 2-17.** `frontend/src/api/tasks.ts` の status クエリ送出を int 対応にする。
+
+- **ファイル:** `frontend/src/api/tasks.ts`
+- **場所:** `listTasks` 7行目
+- **解説:** `status` が `0`（todo）のとき `if (query.status)` が falsy になり脱落するのを防ぐ。`params` は `Record<string, string>` のため `String()` で明示変換する。
+- **変更前:**
+
+```ts
+  if (query.status) params.status = query.status;
+```
+
+- **変更後:**
+
+```ts
+  if (query.status !== undefined && query.status !== '') params.status = String(query.status);
+```
+
+**Step 2-18.** フロント資産を Docker 経由でビルドする（`tsc` の型チェックが通ることを確認）。
 
 ```bash
 composer npm:docker-build
@@ -452,10 +489,10 @@ composer npm:docker-build
 **Step 3-1.** 変更をコミットする。
 
 ```bash
-git add database/ config/ app/ resources/
+git add database/ config/ app/ frontend/
 git commit -m "$(cat <<'EOF'
 feat: change task status from string to integer
-Migration, config, model, requests, TaskService, TaskRepository, and Blade views.
+Migration, config, model, requests, TaskService, TaskRepository, and React frontend.
 Tests and Postman are intentionally unchanged for after_update measurement.
 EOF
 )"
@@ -514,63 +551,12 @@ composer experiment:metrics -- --phase after_update --diff-ref experiment-baseli
 | `'status' => 'in_progress'` | `'status' => 1` |
 | `'status' => 'done'` | `'status' => 2` |
 
-**Step 4-2.** TaskWebTest の status 期待値を int に書き換える。
-
-- **ファイル:** `tests/Feature/TaskWebTest.php`
-- **場所:** ファイル全体の `status` 参照
-- **解説:** Web Feature テストとリダイレクト先クエリの status パラメータを int に合わせる。
-- **変更前（代表箇所）:**
-
-```php
-      'status' => 'todo',
-```
-
-```php
-      'status' => 'in_progress',
-```
-
-```php
-    $response->assertRedirect(route('tasks.index', [
-      'title' => 'After',
-      'status' => 'in_progress',
-    ]));
-```
-
-```php
-      'status' => 'in_progress',
-```
-
-- **変更後（代表箇所）:**
-
-```php
-      'status' => 0,
-```
-
-```php
-      'status' => 1,
-```
-
-```php
-    $response->assertRedirect(route('tasks.index', [
-      'title' => 'After',
-      'status' => 1,
-    ]));
-```
-
-```php
-      'status' => 1,
-```
-
-**Step 4-3.** TaskListFilterTest の status フィルタと seed データを int に書き換える。
+**Step 4-2.** TaskListFilterTest の status フィルタと seed データを int に書き換える。
 
 - **ファイル:** `tests/Feature/TaskListFilterTest.php`
-- **場所:** 38行目、98行目、127–151行目
-- **解説:** フィルタクエリとシードデータを int status に合わせ、`done` 相当は `2` で検証する。
+- **場所:** 98行目、127–151行目
+- **解説:** フィルタクエリとシードデータを int status に合わせ、`done` 相当は `2` で検証する。S2 は一覧フィルタが API のみのため、Web ルート `/tasks?status=` のクエリは存在しない（API `getJson` のみ）。
 - **変更前:**
-
-```php
-    $response = $this->actingAs($this->user)->get('/tasks?status=done');
-```
 
 ```php
     $response = $this->actingAs($this->user)->getJson('/api/tasks?status=done');
@@ -591,10 +577,6 @@ composer experiment:metrics -- --phase after_update --diff-ref experiment-baseli
 - **変更後:**
 
 ```php
-    $response = $this->actingAs($this->user)->get('/tasks?status=2');
-```
-
-```php
     $response = $this->actingAs($this->user)->getJson('/api/tasks?status=2');
 ```
 
@@ -610,7 +592,7 @@ composer experiment:metrics -- --phase after_update --diff-ref experiment-baseli
       'status' => 1,
 ```
 
-**Step 4-4.** Postman コレクションの request body を int status に更新する。
+**Step 4-3.** Postman コレクションの request body を int status に更新する。
 
 - **ファイル:** `postman/Task-API.postman_collection.json`
 - **場所:** 195行目、255行目（`raw` body）
@@ -635,7 +617,7 @@ composer experiment:metrics -- --phase after_update --diff-ref experiment-baseli
 "raw": "{\n  \"title\": \"Updated from Postman\",\n  \"status\": 1\n}"
 ```
 
-**Step 4-5.** CI 相当の品質チェックを実行し、すべて緑にする。
+**Step 4-4.** CI 相当の品質チェックを実行し、すべて緑にする。
 
 ```bash
 ./scripts/check-quality.sh
@@ -736,9 +718,9 @@ git push origin exp/api-spec-change-status-int
 
 | ファイル | 理由 |
 | --- | --- |
-| `app/Http/Controllers/Web/TaskController.php` | improved 構成では Controller は HTTP 受け渡しのみとし、正規化は TaskService に集約する実験設計のため |
-| `app/Http/Controllers/API/TaskController.php` | 同上。legacy との差（Controller 内修正の有無）を計測する対照群のため |
+| `app/Http/Controllers/API/TaskController.php` | improved 構成では Controller は HTTP 受け渡しのみとし、正規化は TaskService に集約する実験設計のため。S2 は API 一本化のため Web Controller は存在しない。S0（Blade）との差（Controller 内修正の有無）を計測する対照群でもある |
 | `app/Http/Resources/TaskResource.php` | Model の `integer` cast により JSON 出力の `status` も自動的に int になるため変更不要 |
+| `frontend/src/components/TaskTable.tsx` | `statusLabel(task.status)` で表示するため、`STATUS_OPTIONS` の value を int にすれば自動追従（変更不要） |
 | `database/migrations/2026_05_12_052659_create_tasks_table.php` | 既存マイグレーションは変更せず、新規マイグレーションで型変更・データ移行を行うため |
 
 ## 関連

@@ -82,6 +82,34 @@ git checkout -b exp/api-spec-change-status-int experiment-baseline-v1
 composer experiment:metrics -- --phase baseline --diff-ref experiment-baseline-v1
 ```
 
+**Step 1-2.** baseline を GitHub に push し、draft PR を作成して CI 緑を確認する
+
+**この Step の目的:** exp ブランチへの push だけでは CI が走らない（push トリガーは `main`/`master` のみ）。フェーズ別の CI 結果を GitHub 上に残すため、この時点で draft PR を1本作り、以降の各 push を同じ PR に積む。ブランチはタグと同一で差分ゼロのため、`gh pr create` を成立させる anchor として空コミットを1つ積む（app ファイル差分を増やさないので `git_app` メトリクスに影響しない）。
+
+```bash
+git commit --allow-empty -m "chore(exp): baseline anchor for api-spec-change-status-int"
+git push -u origin exp/api-spec-change-status-int
+gh pr create --draft --base main --head exp/api-spec-change-status-int \
+  --title "exp: api-spec-change-status-int（improved）" \
+  --body "$(cat <<'EOF'
+## Summary
+- タスク `status` を string から integer（0/1/2）へ変更する実験
+- improved 構成（TaskService / TaskRepository に集約）
+
+## Test plan（フェーズ別 CI）
+- [ ] baseline コミットで CI 4 ジョブ緑
+- [ ] after_update コミットで CI 赤（テスト未修正・意図的）
+- [ ] after_fix コミットで CI 4 ジョブすべて成功
+- [ ] `experiment/results/api-spec-change-status-int/` に 3 フェーズ JSON + RECORD.md がある
+
+実験用 PR。マージはしない。
+EOF
+)"
+gh pr checks exp/api-spec-change-status-int --watch
+```
+
+GitHub Actions（4 ジョブ）が緑になることを確認し、失敗0を RECORD.md の baseline 行に記録する。
+
 ---
 
 ### Phase 2: 変更適用（テスト・Postman 未着手）
@@ -504,6 +532,17 @@ EOF
 composer experiment:metrics -- --phase after_update --diff-ref experiment-baseline-v1
 ```
 
+**Step 3-3.** after_update コミットを push し、CI が赤くなることを確認・記録する
+
+**この Step の目的:** テスト未修正の壊れた状態を GitHub Actions 上でも赤として残す。`php-tests`（PHPUnit）と `api-tests`（Newman）が失敗し、依存側でフォーマット/型/lint が崩れていれば `php-quality`・`frontend` も赤になる。失敗ジョブ数を RECORD.md の after_update 行に記録する。
+
+```bash
+git push origin exp/api-spec-change-status-int
+gh pr checks exp/api-spec-change-status-int --watch
+```
+
+> **注意:** `ci.yml` は `concurrency: cancel-in-progress` のため、run が完了する前に次の push（Phase 5）を行うとキャンセルされる。`--watch` で CI 完了を待ってから Phase 4 に進む。
+
 ---
 
 ### Phase 4: テスト・Postman 修正 → CI 緑
@@ -664,27 +703,17 @@ composer experiment:record -- --scenario api-spec-change-status-int --write
 ```bash
 git add experiment/results/api-spec-change-status-int/
 git commit -m "docs(experiment): publish api-spec-change-status-int results"
-git push -u origin exp/api-spec-change-status-int
+git push origin exp/api-spec-change-status-int
 ```
 
-**Step 5-7.** PRを作成し、CIを確認する。
+**Step 5-7.** after_fix の CI 緑を確認する（PR は Phase 1 Step 1-2 で作成済みのため新規作成しない）。直前の push が after_fix の CI（緑）を発火する。
 
 ```bash
-gh pr create --base main --head exp/api-spec-change-status-int \
-  --title "exp: api-spec-change-status-int（improved）" \
-  --body "$(cat <<'EOF'
-## Summary
-- タスク `status` を string から integer（0/1/2）へ変更する実験
-- improved 構成（TaskService / TaskRepository に集約）
-
-## Test plan
-- [ ] GitHub Actions 4 ジョブすべて成功
-- [ ] `experiment/results/api-spec-change-status-int/` に 3 フェーズ JSON + RECORD.md がある
-
-実験用 PR。マージはしない。
-EOF
-)"
+gh pr checks exp/api-spec-change-status-int --watch
+gh pr ready exp/api-spec-change-status-int   # 任意: draft を Ready に切り替え
 ```
+
+GitHub Actions 4 ジョブすべて成功を確認し、失敗0を RECORD.md の after_fix 行に記録する。
 
 **Step 5-8.** 結果を公開ディレクトリにコピーする。
 
@@ -710,6 +739,7 @@ git push origin exp/api-spec-change-status-int
 ## 5. 完了条件
 
 - [ ]  GitHub Actions 4 ジョブすべて成功（`./scripts/check-quality.sh` がローカルで緑）
+- [ ]  各フェーズの GitHub CI を同一 PR に記録済み（baseline / after_update / after_fix）
 - [ ]  `baseline` / `after_update` / `after_fix` の 3 フェーズ JSON が `experiment/metrics/` に存在する
 - [ ]  `experiment/results/` に結果がコピーされている（`publish-experiment-results.sh` 実行済み）
 - [ ]  従来構成リポジトリ（`tech-update-task-app-legacy`）で同一手順を実施済み（比較実験）

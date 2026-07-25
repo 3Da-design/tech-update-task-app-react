@@ -429,26 +429,34 @@ export type TaskStatus = 0 | 1 | 2;
 **Step 2-14.** `frontend/src/components/StatusLabel.tsx` の選択肢 value を int にする。
 
 - **ファイル:** `frontend/src/components/StatusLabel.tsx`
-- **場所:** `STATUS_OPTIONS` 3–7行目
+- **場所:** `STATUS_OPTIONS` 3–11行目
 - **解説:** 選択肢の value を int に、表示ラベル（`未着手` 等）はそのまま維持する。`statusLabel()` は value 一致で引くため変更不要。
 - **変更前:**
 
-```ts
+```tsx
 export const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'todo', label: '未着手' },
   { value: 'in_progress', label: '進行中' },
   { value: 'done', label: '完了' },
 ];
+
+export function statusLabel(status: TaskStatus): string {
+  return STATUS_OPTIONS.find((option) => option.value === status)?.label ?? status;
+}
 ```
 
 - **変更後:**
 
-```ts
+```tsx
 export const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 0, label: '未着手' },
   { value: 1, label: '進行中' },
   { value: 2, label: '完了' },
 ];
+
+export function statusLabel(status: TaskStatus): string {
+  return STATUS_OPTIONS.find((option) => option.value === status)?.label ?? String(status);
+}
 ```
 
 **Step 2-15.** `frontend/src/components/TaskForm.tsx` の既定値と onChange を int 化する。

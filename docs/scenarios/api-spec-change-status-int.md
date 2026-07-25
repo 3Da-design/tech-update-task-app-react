@@ -461,6 +461,7 @@ export function statusLabel(status: TaskStatus): string {
 
 **Step 2-15.** `frontend/src/components/TaskForm.tsx` の既定値と onChange を int 化する。
 
+
 - **ファイル:** `frontend/src/components/TaskForm.tsx`
 - **解説:** `EMPTY_FORM` の status 既定値を int にし、select の onChange で `Number()` 変換する（`event.target.value` は文字列のため、これを怠ると型エラーになる — H3 の検出点）。
 - **`EMPTY_FORM` 変更後:**

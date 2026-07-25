@@ -76,6 +76,7 @@ frontend/
     │   └── StatusLabel.tsx         … ステータス表示ラベル・選択肢定義
     └── pages/
         ├── LoginPage.tsx           … ログイン画面（SPA 完結、Blade 不使用）
+        ├── RegisterPage.tsx        … 新規登録画面（SPA 完結、POST /api/register）
         └── TasksPage.tsx           … タスク一覧ページ（フィルタ・CRUD の統合）
 ```
 
@@ -98,6 +99,8 @@ app/Http/Requests/                           … バリデーション
 
 ### 削除・無効化したファイル
 
+**S2 化（Blade → React）で削除:**
+
 | ファイル | 理由 |
 |----------|------|
 | `app/Http/Controllers/Web/TaskController.php` | API 一本化のため削除（タスク操作は `/api/tasks` のみ） |
@@ -107,12 +110,25 @@ app/Http/Requests/                           … バリデーション
 | `resources/views/layouts/navigation.blade.php` | Blade ナビゲーション不要（React 側でヘッダー描画） |
 | `resources/js/`, `resources/css/app.css`, `tailwind.config.js`, `postcss.config.js` | Blade 向けの旧フロント資産（`frontend/` に置き換え） |
 
-### 残存する Blade
+**未使用 Breeze scaffold の掃除で削除（2026-07-25、約 1,400 行）:** React SPA が使わない Breeze の認証画面・プロフィール系を一括削除。
 
 | ファイル | 理由 |
 |----------|------|
-| `resources/views/auth/register.blade.php` | Breeze 標準の登録・パスワード再設定フロー（本研究のスコープ外機能のため最小限維持） |
-| `resources/views/layouts/partials/*.blade.php` | 上記ページの共通レイアウト部品 |
+| `resources/views/`（残り全 Blade） | 登録・パスワード再設定・メール認証・プロフィール・レイアウト部品・共通コンポーネント。React SPA が全画面を担当し、描画される Blade が残っていなかったため全廃 |
+| `app/View/Components/{GuestLayout,AppLayout}.php` | 上記 Blade レイアウト専用のクラスコンポーネント |
+| `routes/auth.php` | Breeze の登録画面・パスワード再設定・メール認証・確認ルート一式（React は `/api/login`・`/api/register` のみ使用） |
+| `app/Http/Controllers/Auth/{ConfirmablePassword,EmailVerificationNotification,EmailVerificationPrompt,NewPassword,Password,PasswordResetLink,VerifyEmail}Controller.php` | 上記ルート削除に伴い未参照化 |
+| `app/Http/Controllers/ProfileController.php` / `app/Http/Requests/ProfileUpdateRequest.php` | プロフィール機能は React 未実装（スコープ外） |
+| `tests/Feature/Auth/{EmailVerification,PasswordConfirmation,PasswordReset,PasswordUpdate}Test.php`, `tests/Feature/ProfileTest.php` | 削除した機能に対応するテスト |
+
+**あわせて調整したファイル:**
+
+- `app/Models/User.php`: `MustVerifyEmail` を除去（メール認証ルート削除に伴う整合）。
+- `app/Http/Controllers/Auth/RegisteredUserController.php`: Blade 描画用の `create()` を削除（`store()` は `/api/register` 用に維持）。
+- `routes/web.php`: プロフィール／`/dashboard` ルートと `require auth.php` を削除。認証は `/api/login`・`/api/logout`・`/api/register`・`/api/user` のみ。
+- `tests/Feature/Auth/RegistrationTest.php`: 旧 Breeze `/register`(Blade) から `/api/register`(JSON) 版へ書き換え。
+
+> **Blade は残存しない。** S2 は React SPA が全画面を担当し、Laravel は API・認証エンドポイントのみを提供する。この掃除は `exp/*` シナリオが触るファイル（`TaskService` / `TaskRepository` / `frontend/*` ほか）を一切含まず、`experiment-baseline-v1`（掃除後コミットへ貼り直し済み）からの `git_app` 差分はゼロ。
 
 ## 認証方式（Sanctum SPA / Cookie）
 
@@ -162,6 +178,7 @@ $middleware->redirectGuestsTo('/login');
 |----------|------|------|
 | GET | `/sanctum/csrf-cookie` | CSRF Cookie 発行 |
 | POST | `/api/login` | ログイン（Cookie セッション発行） |
+| POST | `/api/register` | 新規登録（Cookie セッション発行） |
 | POST | `/api/logout` | ログアウト |
 | GET | `/api/user` | 現在のログインユーザー取得 |
 | GET | `/api/tasks` | 一覧（フィルタ・ソート対応） |
@@ -183,7 +200,7 @@ $middleware->redirectGuestsTo('/login');
 |--------|----------|------|
 | API CRUD | `tests/Feature/TaskApiTest.php` | 8 テスト |
 | API フィルタ | `tests/Feature/TaskListFilterTest.php` | 4 テスト（API のみ） |
-| 認証 | `tests/Feature/Auth/*.php` | Sanctum SPA 向けに調整済み |
+| 認証 | `tests/Feature/Auth/AuthenticationTest.php`・`RegistrationTest.php` | `/api/login`・`/api/register`（Sanctum SPA）向け。パスワード再設定・メール認証・確認の Breeze テストは掃除で削除 |
 | Newman | `postman/Task-API.postman_collection.json` | 13 assertions（Health / Auth / Tasks API） |
 | フロント | `eslint.config.js` + `tsc --noEmit` | 型チェック・Lint（自動テストは未実装、手動確認で parity 検証） |
 

@@ -45,7 +45,7 @@ improved 構成では、本番コードの修正は `TaskRepository::getFiltered
 | # | ファイルパス | 修正箇所 | フェーズ | 作業内容 | 解説（なぜ触るか） |
 | --- | --- | --- | --- | --- | --- |
 | 1 | `app/Repositories/TaskRepository.php` | `getFiltered()` 15–18 行目 | Phase 2 | `LOWER(title) LIKE ?` に変更 | タイトル検索の大文字小文字無視はクエリ層の責務であり、改良構成ではここだけ直せば Web/API 両方に反映される |
-| 2 | `tests/Feature/TaskListFilterTest.php` | クラス末尾（`seedTasks()` の前） | Phase 4 | ケース無視テスト 2 件を追加 | 新仕様を自動検証し、回帰を防ぐ。シナリオ MD で定義されたテスト名・期待値を実装する |
+| 2 | `tests/Feature/TaskListFilterTest.php` | クラス末尾（`seedTasks()` の前） | Phase 4 | ケース無視テスト（API）を追加 | 新仕様を自動検証し、回帰を防ぐ。S2 は一覧が API 一本化のため API テストのみ（Web ルート `/tasks` は存在しない） |
 | 3 | `postman/Task-API.postman_collection.json` | （任意） | Phase 4 | 変更なしで可 | 現コレクションにタイトルフィルタのリクエストはなく、CI の Newman は既存テストのみ実行されるため必須ではない |
 
 ## 4. 実施手順
@@ -167,31 +167,15 @@ gh pr checks exp/db-schema-change --watch
 
 **この Phase の目的:** 新仕様（大文字小文字無視）をテストで固定し、CI を緑にする。
 
-**Step 4-1.** ケース無視テスト 2 件を `TaskListFilterTest` に追加する
+**Step 4-1.** ケース無視テストを `TaskListFilterTest` に追加する
 
 - **ファイル:** `tests/Feature/TaskListFilterTest.php`
 - **場所:** `test_api_index_sorts_due_date_desc()` の直後（行 125 の後）、`seedTasks()` の前
-- **解説:** シナリオ MD で定義されたテスト名で、Web/API それぞれ `Important task` に `?title=important` がヒットすることを検証する。Phase 2 で Repository を直済みのため、このテスト追加後は即座に緑になる想定。
+- **解説:** シナリオ MD で定義されたテスト名で、API 一覧（`?title=important`）が `Important task` にヒットすることを検証する。S2 は一覧が API 一本化のため Web ルート `/tasks` は存在せず、追加テストは API（`getJson`）のみとする。Phase 2 で Repository を直済みのため、このテスト追加後は即座に緑になる想定。
 - **変更前:** （該当メソッドなし）
-- **変更後:** 以下 2 メソッドを追加
+- **変更後:** 以下のメソッドを追加
 
 ```php
-  public function test_web_index_title_search_is_case_insensitive(): void
-  {
-    Task::query()->create([
-      'user_id' => $this->user->id,
-      'title' => 'Important task',
-      'description' => null,
-      'status' => 'todo',
-      'due_date' => null,
-    ]);
-
-    $response = $this->actingAs($this->user)->get('/tasks?title=important');
-
-    $response->assertOk();
-    $response->assertSee('Important task', false);
-  }
-
   public function test_api_index_title_search_is_case_insensitive(): void
   {
     Task::query()->create([

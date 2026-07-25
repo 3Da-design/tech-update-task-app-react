@@ -26,7 +26,7 @@
 |:---------|:---------------|:--------------|:-------------------|:-------------|:-------------|:-----------|:---------|:-----|
 | ベースライン | 4/4 | 5 | 0 | 0 | 0 | 1 | 0 | tag と差分ゼロの anchor コミット（5c039ea）。CI 4ジョブ緑。 |
 | 更新直後 | 2/4 | 38 | 14 | 72 | 20 | 1 | 0 | status を int 化（migration・config・Model・FormRequest×3・Service・Repository・React）。テスト/Postman は意図的に未更新。PHP Tests（21→12/21）・API Tests(Newman)（13→10/13）が失敗、PHP Quality・Frontend は緑。 |
-| 修正後 | | | 17 | 85 | 33 | 1 | 0 | テスト/Postman を int 対応に更新し復旧（PHPUnit 21/21・Newman 13/13・PHPStan 0件・ESLint OK）。手順書 Step 2-14 の「`statusLabel()` は変更不要」が誤りで、`StatusLabel.tsx:10` の `?? status` が TS2322（`string \| number` → `string`）になり `tsc` が検出（H3 の実例・自動検出のため手動バグには計上せず）。CI 4ジョブ緑。 |
+| 修正後 | 4/4 | 23 | 17 | 85 | 33 | 1 | 0 | テスト/Postman を int 対応に更新し復旧（PHPUnit 21/21・Newman 13/13・PHPStan 0件・ESLint OK）。手順書 Step 2-14 の「`statusLabel()` は変更不要」が誤りで、`StatusLabel.tsx:10` の `?? status` が TS2322（`string \| number` → `string`）になり `tsc` が検出（H3 の実例・自動検出のため手動バグには計上せず）。CI 4ジョブ緑。 |
 
 ## フェーズ別詳細
 

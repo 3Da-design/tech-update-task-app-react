@@ -4,7 +4,7 @@ import type { Task, TaskListQuery } from '../types';
 export async function listTasks(query: TaskListQuery): Promise<Task[]> {
   const params: Record<string, string> = {};
   if (query.title) params.title = query.title;
-  if (query.status) params.status = query.status;
+  if (query.status !== undefined && query.status !== '') params.status = String(query.status);
   if (query.due_date_sort) params.due_date_sort = query.due_date_sort;
 
   const response = await apiClient.get<{ data: Task[] }>('/api/tasks', { params });

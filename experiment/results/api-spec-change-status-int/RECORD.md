@@ -24,9 +24,36 @@
 
 | フェーズ | CI (失敗/総数) | 作業時間 (分) | アプリ変更ファイル | アプリ追加行 | アプリ削除行 | コミット数 | 手動バグ | メモ |
 |:---------|:---------------|:--------------|:-------------------|:-------------|:-------------|:-----------|:---------|:-----|
-| ベースライン | | | | | | | | |
-| 更新直後 | | | | | | | | |
-| 修正後 | | | | | | | | |
+| ベースライン | 0/4 | 6 | 0 | 0 | 0 | 1 | 0 | tag（`dc5cae1`）と差分ゼロの anchor コミット（`6632553`）。CI 4ジョブ緑。事前に dev DB を `migrate:fresh --seed` でリセット（前回実行 2026-07-25 のマイグレーションが `tasks.status` を smallint のまま残していたため）。 |
+| 更新直後 | 2/4 | 5 | 14 | 72 | 20 | 1 | 0 | status を int 化（migration・config・Model・FormRequest×3・TaskService・TaskRepository・Interface・React 5ファイル）。テスト/Postman は意図的に未更新。PHP Tests（21→12/21）・API Tests(Newman)（13→10/13）が失敗、PHP Quality・Frontend は緑。 |
+| 修正後 | 0/4 | 4 | 17 | 85 | 33 | 1 | 0 | テスト/Postman を int 対応に更新し復旧（PHPUnit 21/21・Newman 13/13・PHPStan 0件・ESLint OK・Pint PASS）。CI 4ジョブ緑。H3 の詳細は下記「型検査による早期検出」節。 |
+
+> **作業時間の但し書き:** 上表の作業時間は Claude Code による自動実行の実測経過時間（CI 待ちを含む、コミット時刻から算出）であり、人間の修正工数ではない。スタック間比較に用いる場合は同一の実行主体で揃えること。主指標は `git_app` の変更ファイル数・行数。
+
+<a id="h3"></a>
+
+## 型検査による早期検出（仮説 H3 の観察）
+
+`frontend/src/types.ts` の `TaskStatus` を `'todo' | 'in_progress' | 'done'` → `0 | 1 | 2` の**1行だけ**変更した時点で `tsc --noEmit` を実行し、他フロントファイルを未修正のまま検出内容を記録した。
+
+**検出: 3 ファイル / 7 件**
+
+| ファイル:行 | エラー | 内容 |
+|---|---|---|
+| `api/tasks.ts:7` | TS2322 | `params.status = query.status` — `number` を `Record<string, string>` に代入不可 |
+| `components/StatusLabel.tsx:4` | TS2322 | `STATUS_OPTIONS` の `value: 'todo'` |
+| `components/StatusLabel.tsx:5` | TS2322 | `STATUS_OPTIONS` の `value: 'in_progress'` |
+| `components/StatusLabel.tsx:6` | TS2322 | `STATUS_OPTIONS` の `value: 'done'` |
+| `components/StatusLabel.tsx:10` | TS2322 | `statusLabel()` の `?? status` が `string \| number` になり戻り値型 `string` に不適合 |
+| `components/TaskForm.tsx:9` | TS2322 | `EMPTY_FORM.status: 'todo'` |
+| `components/TaskForm.tsx:80` | TS2352 | select の `onChange` で `event.target.value as TaskStatus`（`string` → `0\|1\|2` は重なりなし） |
+
+**未検出（H3 の限界）: 1 箇所**
+
+- `components/TaskFilterBar.tsx:44` の `setStatus(event.target.value as StatusFilter)` は型エラーにならなかった。`StatusFilter = TaskStatus | ''` に `''` が含まれるため `string` と型が重なり、`as` キャストが不整合を吸収した。手順書に従って `Number()` 変換へ修正したが、**型検査では見つけられず手順書の指示が無ければ見落とす箇所**である。
+- `components/TaskTable.tsx` は `statusLabel(task.status)` 経由のため自動追従（変更不要、検出も不要）。
+
+**含意:** TypeScript は string→int の破壊的変更に対し、値リテラル・代入・戻り値型の不整合を機械的に洗い出せた（S1 の素の HTML+JS では実行時まで露見しない）。一方で `as` キャストが介在する境界（DOM イベント値）は型検査をすり抜けるため、フロント側の変更点をすべて型が保証するわけではない。
 
 ## フェーズ別詳細
 

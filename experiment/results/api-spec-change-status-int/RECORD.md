@@ -24,9 +24,9 @@
 
 | フェーズ | CI (失敗/総数) | 作業時間 (分) | アプリ変更ファイル | アプリ追加行 | アプリ削除行 | コミット数 | 手動バグ | メモ |
 |:---------|:---------------|:--------------|:-------------------|:-------------|:-------------|:-----------|:---------|:-----|
-| ベースライン | 0/4 | 6 | 0 | 0 | 0 | 1 | 0 | tag（`dc5cae1`）と差分ゼロの anchor コミット（`6632553`）。CI 4ジョブ緑。事前に dev DB を `migrate:fresh --seed` でリセット（前回実行 2026-07-25 のマイグレーションが `tasks.status` を smallint のまま残していたため）。 |
-| 更新直後 | 2/4 | 5 | 14 | 72 | 20 | 1 | 0 | status を int 化（migration・config・Model・FormRequest×3・TaskService・TaskRepository・Interface・React 5ファイル）。テスト/Postman は意図的に未更新。PHP Tests（21→12/21）・API Tests(Newman)（13→10/13）が失敗、PHP Quality・Frontend は緑。 |
-| 修正後 | 0/4 | 4 | 17 | 85 | 33 | 1 | 0 | テスト/Postman を int 対応に更新し復旧（PHPUnit 21/21・Newman 13/13・PHPStan 0件・ESLint OK・Pint PASS）。CI 4ジョブ緑。H3 の詳細は下記「型検査による早期検出」節。 |
+| ベースライン | 4/4 | 6 | 0 | 0 | 0 | 1 | 0 | tag（`dc5cae1`）と差分ゼロの anchor コミット（`6632553`）。CI 4ジョブ緑。事前に dev DB を `migrate:fresh --seed` でリセット（前回実行 2026-07-25 のマイグレーションが `tasks.status` を smallint のまま残していたため）。 |
+| 更新直後 | 2/4 | 34 | 14 | 72 | 20 | 1 | 0 | status を int 化（migration・config・Model・FormRequest×3・TaskService・TaskRepository・Interface・React 5ファイル）。テスト/Postman は意図的に未更新。PHP Tests（21→12/21）・API Tests(Newman)（13→10/13）が失敗、PHP Quality・Frontend は緑。 |
+| 修正後 | 4/4 | 22 | 17 | 85 | 33 | 1 | 0 | テスト/Postman を int 対応に更新し復旧（PHPUnit 21/21・Newman 13/13・PHPStan 0件・ESLint OK・Pint PASS）。CI 4ジョブ緑。H3 の詳細は下記「型検査による早期検出」節。 |
 
 > **作業時間の但し書き:** 上表の作業時間は Claude Code による自動実行の実測経過時間（CI 待ちを含む、コミット時刻から算出）であり、人間の修正工数ではない。スタック間比較に用いる場合は同一の実行主体で揃えること。主指標は `git_app` の変更ファイル数・行数。
 

@@ -6,7 +6,7 @@ import { STATUS_OPTIONS } from './StatusLabel';
 const EMPTY_FORM: TaskFormInput = {
   title: '',
   description: '',
-  status: 'todo',
+  status: 0,
   due_date: '',
 };
 
@@ -77,7 +77,7 @@ export function TaskForm({ editingTask, errors, isSubmitting, onSubmit, onCancel
           id="status"
           className="app-input"
           value={form.status}
-          onChange={(event) => setForm({ ...form, status: event.target.value as TaskFormInput['status'] })}
+          onChange={(event) => setForm({ ...form, status: Number(event.target.value) as TaskFormInput['status'] })}
         >
           {STATUS_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>

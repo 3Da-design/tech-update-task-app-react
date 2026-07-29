@@ -430,7 +430,8 @@ export type TaskStatus = 0 | 1 | 2;
 
 - **ファイル:** `frontend/src/components/StatusLabel.tsx`
 - **場所:** `STATUS_OPTIONS` 3–11行目
-- **解説:** 選択肢の value を int に、表示ラベル（`未着手` 等）はそのまま維持する。`statusLabel()` は value 一致で引くため変更不要。
+- **解説:** 選択肢の value を int に、表示ラベル（`未着手` 等）はそのまま維持する。**`statusLabel()` も変更が要る** —— フォールバックの `?? status` は `TaskStatus` が `0|1|2` になると戻り値が `string | number` となり、宣言した戻り値型 `string` に代入できず **TS2322** になる。`?? String(status)` に変える。
+- **⚠️ この記述は 2026-07-26 に訂正した。** 訂正前は「`statusLabel()` は value 一致で引くため**変更不要**」と誤記しており、そのため `run-20260725T003716Z`（2026-07-25 実施）では `tsc --noEmit` が `StatusLabel.tsx:10` で TS2322 を検出した。この検出は仮説 H3（型が破壊的変更を早期に検出する）の実例として `RECORD.md` に記録されている。**本訂正により、以降の再実行では同じ TS2322 は発生しない**（H3 の当該根拠は再現しない一度きりの観測である）。
 - **変更前:**
 
 ```tsx

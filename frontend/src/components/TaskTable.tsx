@@ -1,5 +1,5 @@
 import type { Task } from '../types';
-import { statusLabel } from './StatusLabel';
+import { statusLabel, priorityLabel } from './StatusLabel';
 
 interface TaskTableProps {
   tasks: Task[];
@@ -18,6 +18,7 @@ export function TaskTable({ tasks, onEdit, onDelete }: TaskTableProps) {
         <tr>
           <th>タイトル</th>
           <th>ステータス</th>
+          <th>優先度</th>
           <th>期限日</th>
           <th>説明</th>
           <th aria-label="操作" />
@@ -28,6 +29,7 @@ export function TaskTable({ tasks, onEdit, onDelete }: TaskTableProps) {
           <tr key={task.id}>
             <td>{task.title}</td>
             <td>{statusLabel(task.status)}</td>
+            <td>{priorityLabel(task.priority)}</td>
             <td>{task.due_date ?? '-'}</td>
             <td>{task.description ?? '-'}</td>
             <td>

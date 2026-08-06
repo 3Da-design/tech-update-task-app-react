@@ -53,8 +53,13 @@ docker compose up -d
 docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate --seed
 composer npm:docker-build
+./scripts/sync-node-modules-host.sh
 docker compose --profile node run --rm --service-ports node npm run dev
 ```
+
+`sync-node-modules-host.sh` は **エディタの型解決専用**。node サービスが `node_modules` を名前付きボリュームで上書きしているためホスト側が空になり、
+`JSX element implicitly has type 'any'` が全コンポーネントに出るのを防ぐ。ビルド・CI・実験計測はコンテナ内を使うため影響しない。
+clone / worktree 作成後、`docker compose down -v` の後、`package.json` の依存変更後に再実行する。
 
 ### よく使うコマンド
 

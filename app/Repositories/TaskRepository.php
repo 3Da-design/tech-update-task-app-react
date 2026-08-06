@@ -22,7 +22,7 @@ class TaskRepository implements TaskRepositoryInterface
       $query->where('status', $status);
     }
 
-    $priority = $filters['prioirty'] ?? null;
+    $priority = $filters['priority'] ?? null;
     if (is_string($priority) && $priority !== '') {
       $query->where('priority', $priority);
     }

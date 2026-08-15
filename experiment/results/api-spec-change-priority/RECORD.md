@@ -25,8 +25,8 @@
 | フェーズ | CI (失敗/総数) | 作業時間 (分) | アプリ変更ファイル | アプリ追加行 | アプリ削除行 | コミット数 | 手動バグ | メモ |
 |:---------|:---------------|:--------------|:-------------------|:-------------|:-------------|:-----------|:---------|:-----|
 | ベースライン | 0/4 | 5 | 0 | 0 | 0 | 1 | 0 | baseline anchor コミットのみ（`8d6e4f0`）。4 属性のみの起点。 |
-| 更新直後 | 1/4 | 54 | 20 | 171 | 12 | 1 | 1 | `f933a59`。CI は PHP Quality のみ失敗（PHPStan 4 件）。原因は `TaskRepository::getFiltered` の `$filters['prioirty']` タイプミス 1 件で、priority フィルタが無効化されていた。PHPUnit / Newman は priority のテスト未追加のため 100% のまま通過し、型検査だけが検出（H3 の観察材料）。 |
-| 修正後 | 0/4 | 38 | 23 | 262 | 15 | 1 | 0 | `6740897`。テスト（PHPUnit 21→25）・Postman（13→15 assertions）を priority 仕様に追従させ、上記タイプミスも修正。CI 4 ジョブすべて成功（run `31061794008`）。別途 `4b9bece` で結果 JSON を公開（アプリ差分なし）。 |
+| 更新直後 | 1/4 | 54 | 17 | 138 | 11 | 1 | 1 | `f933a59`。CI は PHP Quality のみ失敗（PHPStan 4 件）。原因は `TaskRepository::getFiltered` の `$filters['prioirty']` タイプミス 1 件で、priority フィルタが無効化されていた。PHPUnit / Newman は priority のテスト未追加のため 100% のまま通過し、型検査だけが検出（H3 の観察材料）。 |
+| 修正後 | 0/4 | 38 | 20 | 229 | 14 | 1 | 0 | `6740897`。テスト（PHPUnit 21→25）・Postman（13→15 assertions）を priority 仕様に追従させ、上記タイプミスも修正。CI 4 ジョブすべて成功（run `31061794008`）。別途 `4b9bece` で結果 JSON を公開（アプリ差分なし）。 |
 
 **注記:** 自動収集サマリーの「更新直後 / PHPStan 0 件」は `scripts/collect-experiment-metrics.sh` が stderr の `[ERROR]` 行のみを数えており、PHPStan が stdout に出す検出結果を拾えていないための表示上の 0 です。実際は 4 件で、`after_update.json` の `phpstan.exit_code = 1` / `ok = false` が正しい信号です。
 
@@ -45,7 +45,7 @@
 
 - **JSON:** [`after_update.json`](experiment/metrics/runs/run-20260805T235627Z/after_update.json)
 - **git diff_ref:** `experiment-baseline-v1`
-- **git_app（アプリ修正工数・主指標）:** 20 files, +171 / -12 (` 20 files changed, 171 insertions(+), 12 deletions(-)`)
+- **git_app（アプリ修正工数・主指標）:** 17 files, +138 / -11 (` 17 files changed, 138 insertions(+), 11 deletions(-)`)
 - **git_frontend（フロント別・第2章）:** 7 files, +80 / -6 (` 7 files changed, 80 insertions(+), 6 deletions(-)`)
 - **git_backend（バックエンド別・第2章）:** 10 files, +58 / -5 (` 10 files changed, 58 insertions(+), 5 deletions(-)`)
 - **git（実験メタデータ込み）:** 20 files, +171 / -12 (` 20 files changed, 171 insertions(+), 12 deletions(-)`)
@@ -54,7 +54,7 @@
 
 - **JSON:** [`after_fix.json`](experiment/metrics/runs/run-20260805T235627Z/after_fix.json)
 - **git diff_ref:** `experiment-baseline-v1`
-- **git_app（アプリ修正工数・主指標）:** 23 files, +262 / -15 (` 23 files changed, 262 insertions(+), 15 deletions(-)`)
+- **git_app（アプリ修正工数・主指標）:** 20 files, +229 / -14 (` 20 files changed, 229 insertions(+), 14 deletions(-)`)
 - **git_frontend（フロント別・第2章）:** 7 files, +80 / -6 (` 7 files changed, 80 insertions(+), 6 deletions(-)`)
 - **git_backend（バックエンド別・第2章）:** 12 files, +141 / -6 (` 12 files changed, 141 insertions(+), 6 deletions(-)`)
 - **git（実験メタデータ込み）:** 23 files, +262 / -15 (` 23 files changed, 262 insertions(+), 15 deletions(-)`)
@@ -72,3 +72,27 @@ stack-s2	api-spec-change-priority	after_fix	20260806T010556Z	25	25	100.0	15	15	1
 ```
 
 </details>
+
+## 2026-08-12 追記 — `git_app` の除外パス是正にともなう再計測
+
+**主指標 `git_app` を 23 → 20 files（+262/−15 → +229/−14）に改めた。**
+
+当初の計測は Vite のビルド生成物3件（`public/assets/index-CJouV3Ii.js` +16 /
+`public/assets/index-Cwra73WT.js` +16 / `public/index.html` +1−1、計 +33/−1）を含んでいた。
+これは「手で書いた修正量」を測るという主指標の定義から外れ、ビルド工程を持たない S1・
+生成物を未コミットの S0 と比較条件が揃わないため、`collect-experiment-metrics.sh` の除外パスに
+`public/assets` と `public/index.html` を追加した（4リポとも同一定義に統一）。
+
+- **裏取りの再計測:** `run-20260815T052039Z`（`--phase after_fix --diff-ref 8d6e4f0`。集約を汚さないよう `experiment/metrics/verifications/` に退避）。
+  `git_app = 20 files / +229 / −14` を再現。品質ゲートは PHPStan 0・ESLint OK・Vite build OK・
+  **PHPUnit 25/25・Newman 15/15** と元の run と完全一致（コード状態は同一で、変わったのは指標の定義のみ）
+- **`after_update` の 20 → 17 files（+171/−12 → +138/−11）は再計測ではなく再計算。**
+  当該フェーズのコミット（`f933a59`）は既に過去のため品質ゲートは再実行できず、
+  `git diff` による決定的な再計算のみ行った。テスト結果は元の値のまま
+- **`baseline` は 0 files で変化なし**
+
+> ⚠ **`experiment-baseline-v1` タグが実験ブランチの祖先になっていない。**
+> タグは `6779a89`（`main` 上・2026-08-06 10:23 JST）を指しているが、これは本 run の
+> `after_fix` 記録（10:05 JST）より**後に作られたコミット**で、`exp/api-spec-change-priority` の履歴に含まれない。
+> そのためタグを基準に測ると 25 files/−57 と誤った値が出る。**正しい基準は anchor コミット `8d6e4f0`。**
+> 上記の再計測・再計算はすべて `8d6e4f0` を基準にしている。タグの付け替えは未実施（要判断）。

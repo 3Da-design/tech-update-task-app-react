@@ -100,7 +100,7 @@ S0 / S1 と同一の `TaskService` / `TaskRepository` を維持しており（Fa
 
 | 項目 | 値 |
 |------|-----|
-| Web（Laravel/nginx） | `http://localhost:8004` |
+| Web（Laravel/nginx） | `http://localhost:8003` |
 | Vite dev（フロント） | `http://localhost:5175` |
 | DB 公開ポート | `5436` |
 
@@ -118,7 +118,7 @@ docker compose exec app php artisan migrate --seed
 composer npm:docker-build
 ```
 
-ブラウザで `http://localhost:8004` を開きます。シードユーザー: `test@example.com` / `password`
+ブラウザで `http://localhost:8003` を開きます。シードユーザー: `test@example.com` / `password`
 
 開発時（Vite dev サーバで HMR を有効にする場合）:
 
@@ -126,7 +126,7 @@ composer npm:docker-build
 docker compose --profile node run --rm --service-ports node npm run dev
 ```
 
-`http://localhost:5175` で React アプリが起動し、axios が `http://localhost:8004` の API を CORS + Cookie 付きで呼び出します。
+`http://localhost:5175` で React アプリが起動し、axios が `http://localhost:8003` の API を CORS + Cookie 付きで呼び出します。
 
 ### よく使うコマンド
 

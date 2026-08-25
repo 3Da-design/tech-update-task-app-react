@@ -45,7 +45,7 @@ TaskRepository → Task (Model)
 
 | サービス | コンテナ名 | ポート |
 |----------|-----------|--------|
-| Nginx | `tech-update-task-app-react-nginx` | 8004 |
+| Nginx | `tech-update-task-app-react-nginx` | 8003 |
 | PHP-FPM | `tech-update-task-app-react-php` | 9000（内部） |
 | PostgreSQL | `tech-update-task-app-react-postgres` | 5436 |
 | Node（開発 / ビルド時のみ） | profile: node | 5175 → コンテナ内 5173 |
@@ -82,7 +82,7 @@ frontend/
 
 - Vite のルートは `frontend/`（`vite.config.ts` の `root: 'frontend'`）。
 - ビルド成果物は `../public`（Laravel の `public/`）に出力し、nginx がそのまま静的配信する（`emptyOutDir: false` で Laravel 側の `public/index.php` 等を消さない）。
-- 開発時は `docker compose --profile node run --rm --service-ports node npm run dev` で Vite dev サーバ（5175）を別オリジンとして起動し、axios が `http://localhost:8004` の API を CORS 経由で呼ぶ。
+- 開発時は `docker compose --profile node run --rm --service-ports node npm run dev` で Vite dev サーバ（5175）を別オリジンとして起動し、axios が `http://localhost:8003` の API を CORS 経由で呼ぶ。
 
 ### バックエンド（API・維持）
 
@@ -144,11 +144,11 @@ app/Http/Requests/                           … バリデーション
 ### 環境変数（`.env` / `.env.example`）
 
 ```
-SANCTUM_STATEFUL_DOMAINS=localhost:5175,localhost:8004,127.0.0.1:5175,127.0.0.1:8004,nginx
-FRONTEND_URLS=http://localhost:5175,http://localhost:8004,http://nginx
+SANCTUM_STATEFUL_DOMAINS=localhost:5175,localhost:8003,127.0.0.1:5175,127.0.0.1:8003,nginx
+FRONTEND_URLS=http://localhost:5175,http://localhost:8003,http://nginx
 ```
 
-- `SANCTUM_STATEFUL_DOMAINS`: Cookie セッションを信頼するフロントの `host:port`。開発時の Vite dev サーバ（5175）と本番相当の nginx 配信（8004）の両方を含む。`nginx` は Docker ネットワーク内から Newman が呼ぶ場合のホスト名。
+- `SANCTUM_STATEFUL_DOMAINS`: Cookie セッションを信頼するフロントの `host:port`。開発時の Vite dev サーバ（5175）と本番相当の nginx 配信（8003）の両方を含む。`nginx` は Docker ネットワーク内から Newman が呼ぶ場合のホスト名。
 - `FRONTEND_URLS`: `config/cors.php` が読む CORS 許可オリジン（`supports_credentials: true` のため `*` 不可）。
 
 ### ミドルウェア構成（`bootstrap/app.php`）
@@ -237,7 +237,7 @@ docker compose --profile node run --rm --service-ports node npm run dev
 ```
 
 - `http://localhost:5175` で HMR 付きの開発サーバが起動する。
-- axios は `http://localhost:8004` の API を CORS + Cookie 付きで呼ぶ（別オリジン）。
+- axios は `http://localhost:8003` の API を CORS + Cookie 付きで呼ぶ（別オリジン）。
 
 ### シードユーザー
 
@@ -249,7 +249,7 @@ docker compose --profile node run --rm --service-ports node npm run dev
 
 1. `docker compose up -d` でスタック起動（nginx / php-fpm / postgres）。
 2. `composer npm:docker-build` で `frontend/` をビルドし `public/` に出力（本番相当の確認をする場合）。
-3. ブラウザで `http://localhost:8004/` にアクセス → 未ログインのため `/login`（React SPA）にリダイレクト。
+3. ブラウザで `http://localhost:8003/` にアクセス → 未ログインのため `/login`（React SPA）にリダイレクト。
 4. `test@example.com` / `password` でログイン → タスク一覧ページへ遷移。
 5. 「新規作成」→ タイトル・説明・ステータス・期限日を入力 → 「保存」→ 一覧に追加。
 6. 「編集」→ フィールド変更（例: ステータスを進行中に）→ 「保存」→ 一覧に反映。

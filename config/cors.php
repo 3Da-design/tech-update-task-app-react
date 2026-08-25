@@ -7,7 +7,7 @@ return [
     | Cross-Origin Resource Sharing (CORS) Configuration
     |--------------------------------------------------------------------------
     |
-    | React SPA（Vite dev: localhost:5175 / ビルド後は同一オリジン localhost:8004）から
+    | React SPA（Vite dev: localhost:5175 / ビルド後は同一オリジン localhost:8003）から
     | Cookie 付きで API・Sanctum CSRF エンドポイントを呼べるようにする。
     |
     */

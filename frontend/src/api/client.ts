@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// バックエンド（Laravel API）のオリジン。開発時は Vite(5175) と別オリジンの 8004。
+// バックエンド（Laravel API）のオリジン。開発時は Vite(5175) と別オリジンの 8003。
 export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8004';
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8003';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

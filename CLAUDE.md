@@ -38,7 +38,7 @@
 
 | 項目 | 値 |
 |------|-----|
-| Web（Laravel/nginx） | `http://localhost:8004` |
+| Web（Laravel/nginx） | `http://localhost:8003` |
 | Vite dev（フロント） | `http://localhost:5175` |
 | DB 公開ポート | `5436` |
 | Compose 名 | `tech-update-task-app-react` |
@@ -95,7 +95,7 @@ npm run test:api:docker
 ### テスト
 
 - PHPUnit / Newman は S0 と同様に維持。
-- `postman/local.postman_environment.json` の `baseUrl` は `http://localhost:8004`。
+- `postman/local.postman_environment.json` の `baseUrl` は `http://localhost:8003`。
 
 ## アーキテクチャ（improved・維持）
 

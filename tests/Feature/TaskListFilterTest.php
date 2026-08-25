@@ -38,7 +38,7 @@ class TaskListFilterTest extends TestCase
   {
     $this->seedTasks();
 
-    $response = $this->actingAs($this->user)->getJson('/api/tasks?status=done');
+    $response = $this->actingAs($this->user)->getJson('/api/tasks?status=2');
 
     $response->assertOk();
     $titles = collect($response->json('data'))->pluck('title')->all();
@@ -73,7 +73,7 @@ class TaskListFilterTest extends TestCase
       'user_id' => $this->user->id,
       'title' => 'Foo task',
       'description' => null,
-      'status' => 'todo',
+      'status' => 0,
       'due_date' => null,
     ]);
 
@@ -81,7 +81,7 @@ class TaskListFilterTest extends TestCase
       'user_id' => $this->user->id,
       'title' => 'Bar task',
       'description' => null,
-      'status' => 'done',
+      'status' => 2,
       'due_date' => '2026-06-01',
     ]);
 
@@ -89,7 +89,7 @@ class TaskListFilterTest extends TestCase
       'user_id' => $this->user->id,
       'title' => 'Baz task',
       'description' => null,
-      'status' => 'in_progress',
+      'status' => 1,
       'due_date' => '2026-06-15',
     ]);
   }

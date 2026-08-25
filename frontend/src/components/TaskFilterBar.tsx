@@ -41,7 +41,10 @@ export function TaskFilterBar({ initialQuery, onApply, onCreateNew }: TaskFilter
           id="filter-status"
           className="app-input"
           value={status}
-          onChange={(event) => setStatus(event.target.value as StatusFilter)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setStatus(value === '' ? '' : (Number(value) as TaskStatus));
+          }}
         >
           <option value="">すべて</option>
           {STATUS_OPTIONS.map((option) => (

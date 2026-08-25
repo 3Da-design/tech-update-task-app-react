@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Task, TaskFormInput } from '../types';
-import { STATUS_OPTIONS } from './StatusLabel';
+import { STATUS_OPTIONS, PRIORITY_OPTIONS } from './StatusLabel';
 
 const EMPTY_FORM: TaskFormInput = {
   title: '',
   description: '',
   status: 'todo',
+  priority: 'medium',
   due_date: '',
 };
 
@@ -16,6 +17,7 @@ function toFormInput(task: Task | null): TaskFormInput {
     title: task.title,
     description: task.description ?? '',
     status: task.status,
+    priority: task.priority,
     due_date: task.due_date ?? '',
   };
 }
@@ -86,6 +88,23 @@ export function TaskForm({ editingTask, errors, isSubmitting, onSubmit, onCancel
           ))}
         </select>
         {errors.status && <p className="app-error">{errors.status.join(' ')}</p>}
+      </div>
+
+      <div className="app-form-field">
+        <label htmlFor="priority">優先度</label>
+        <select
+          id="priority"
+          className="app-input"
+          value={form.priority}
+          onChange={(event) => setForm({ ...form, priority: event.target.value as TaskFormInput['priority'] })}
+        >
+          {PRIORITY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        {errors.priority && <p className="app-error">{errors.priority.join(' ')}</p>}
       </div>
 
       <div className="app-form-field">

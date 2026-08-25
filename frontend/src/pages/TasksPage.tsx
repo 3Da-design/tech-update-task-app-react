@@ -62,6 +62,7 @@ export function TasksPage() {
       title: input.title,
       description: input.description === '' ? null : input.description,
       status: input.status,
+      priority: input.priority,
       due_date: input.due_date === '' ? null : input.due_date,
     };
 

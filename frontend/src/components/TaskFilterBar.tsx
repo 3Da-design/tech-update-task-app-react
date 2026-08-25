@@ -1,9 +1,10 @@
 import type { FormEvent } from 'react';
 import { useState } from 'react';
-import type { TaskListQuery, TaskStatus } from '../types';
-import { STATUS_OPTIONS } from './StatusLabel';
+import type { TaskListQuery, TaskStatus, TaskPriority } from '../types';
+import { STATUS_OPTIONS, PRIORITY_OPTIONS } from './StatusLabel';
 
 type StatusFilter = TaskStatus | '';
+type PriorityFilter = TaskPriority | '';
 type SortFilter = 'asc' | 'desc' | '';
 
 interface TaskFilterBarProps {
@@ -15,11 +16,13 @@ interface TaskFilterBarProps {
 export function TaskFilterBar({ initialQuery, onApply, onCreateNew }: TaskFilterBarProps) {
   const [title, setTitle] = useState(initialQuery.title ?? '');
   const [status, setStatus] = useState<StatusFilter>(initialQuery.status ?? '');
+  const [priority, setPriority] = useState<PriorityFilter>(initialQuery.priority ?? '');
+  const [prioritySort, setPrioritySort] = useState<SortFilter>(initialQuery.priority_sort ?? '');
   const [dueDateSort, setDueDateSort] = useState<SortFilter>(initialQuery.due_date_sort ?? '');
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    onApply({ title, status, due_date_sort: dueDateSort });
+    onApply({ title, status, priority, priority_sort: prioritySort, due_date_sort: dueDateSort });
   }
 
   return (
@@ -49,6 +52,37 @@ export function TaskFilterBar({ initialQuery, onApply, onCreateNew }: TaskFilter
               {option.label}
             </option>
           ))}
+        </select>
+      </div>
+
+      <div className="app-form-field">
+        <label htmlFor="filter-priority">優先度</label>
+        <select
+          id="filter-priority"
+          className="app-input"
+          value={priority}
+          onChange={(event) => setPriority(event.target.value as PriorityFilter)}
+        >
+          <option value="">すべて</option>
+          {PRIORITY_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="app-form-field">
+        <label htmlFor="filter-priority-sort">優先度ソート</label>
+        <select
+          id="filter-priority-sort"
+          className="app-input"
+          value={prioritySort}
+          onChange={(event) => setPrioritySort(event.target.value as SortFilter)}
+        >
+          <option value="">指定なし</option>
+          <option value="asc">昇順</option>
+          <option value="desc">降順</option>
         </select>
       </div>
 
